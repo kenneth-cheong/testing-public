@@ -34,7 +34,10 @@ ranking_list = []
 for i in keywords:
     i.replace(' ','+')
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=30")
-    time.sleep(30)
+    time.sleep(10)
 
-    domain = driver.find_element(By.XPATH,'//*[@id="rso"]/div').text
+    domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     print(domain)
+    
+    with open("Output.txt", "w") as text_file:
+    text_file.write(domain)
