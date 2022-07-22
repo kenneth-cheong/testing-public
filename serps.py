@@ -36,10 +36,7 @@ for i in keywords:
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=30")
     time.sleep(30)
 
-    for i in range(5,10):
-        domain = ((driver.find_element(By.XPATH,'//*[@id="rso"]/div['+str(i)+']/div/div[1]/div/a/div/cite').text).split(''))[0]
-        title = driver.find_element(By.XPATH,'//*[@id="rso"]/div['+str(i)+']/div/div[1]/div/a/h3').text
-        desc = driver.find_element(By.XPATH,'//*[@id="rso"]/div['+str(i)+']/div/div[2]').text
-        if desc == '':
-            desc = driver.find_element(By.XPATH,'//*[@id="rso"]/div['+str(i)+']/div/div[3]').text
-        print(domain,title,desc)
+    domain = driver.find_element(By.XPATH,'//*[@id="rso"]/div[1]/div/div[1]/div/a/div/cite/span').text
+    title = driver.find_element(By.XPATH,'//*[@id="rso"]/div[1]/div/div[1]/div/a/h3').text
+    desc = driver.find_element(By.XPATH,'//*[@id="rso"]/div[1]/div/div[2]/div/span[2]/text()[2]').text
+    print(domain,title,desc)
