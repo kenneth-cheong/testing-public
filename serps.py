@@ -36,5 +36,5 @@ for i in keywords:
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=30")
     time.sleep(30)
 
-    domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
+    domain = driver.find_element(By.XPATH,'//*[@id="rso"]/div').text
     print(domain)
