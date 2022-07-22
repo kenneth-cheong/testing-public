@@ -36,10 +36,8 @@ for i in keywords:
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
     time.sleep(10)
 
-    #domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
-    #print(domain)
-    
-    html = driver.page_source
+    domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
+    print(domain)
     
 with open("Output.txt", "w") as text_file:
-    text_file.write(html)
+    text_file.write(domain)
