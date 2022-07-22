@@ -39,5 +39,5 @@ for i in keywords:
     domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     print(domain)
     
-    with open("Output.txt", "w") as text_file:
+with open("Output.txt", "w") as text_file:
     text_file.write(domain)
