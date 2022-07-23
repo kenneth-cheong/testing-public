@@ -25,7 +25,7 @@ for option in options:
 
 driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
-keywords = ['sem marketing','seo marketing','social media marketing]
+keywords = ['sem marketing','seo marketing','social media marketing']
 
 targeted_url = 'forbes'
 
