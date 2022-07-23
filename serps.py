@@ -69,7 +69,7 @@ for j in lines:
         index_descs.append(lines.index(j))
         descs.append(j)
         
-df = pd.DataFrame(list(zip(titles,indexes_titles,urls,new)),
+df = pd.DataFrame(list(zip(titles,urls)),
                columns =['title','url'],)
 df.index+=1
 df['title'] = df['title'].str.replace('\n','')
