@@ -42,7 +42,7 @@ for i in keywords:
 with open("Output.txt", "w") as text_file:
     text_file.write(lines)
     
-with open('output.txt') as f:
+with open('Output.txt') as f:
     lines = f.readlines()
     
 #list of indexes of urls
