@@ -27,19 +27,20 @@ driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 keywords = ['sem marketing','seo marketing','social media marketing','digital marketing','marketing psg']
 
-targeted_url_1 = 'https://www.forbes.com/'
-targeted_url_2 = 'https://mediaonemarketing.com.sg/'
-targeted_url_3 = 'https://www.hubspot.com/'
-targeted_url_4 = 'https://www.semrush.com/'
-targeted_url_5 = 'https://www.wordstream.com/'
-targeted_url_6 = 'https://en.wikipedia.org/'
+#no https, wwww or final backslash
+targeted_url_1 = 'forbes.com'
+targeted_url_2 = 'mediaonemarketing.com.sg'
+targeted_url_3 = 'hubspot.com'
+targeted_url_4 = 'semrush.com'
+targeted_url_5 = 'wordstream'
+targeted_url_6 = 'wikipedia.org'
 
 df_kws_rankings = pd.DataFrame(columns=['keyword',targeted_url_1,targeted_url_2,targeted_url_3,targeted_url_4,targeted_url_5,targeted_url_6])
 
 for i in keywords:
     i.replace(' ','+')
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
-    time.sleep(5)
+    time.sleep(3)
 
     lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     #print(lines)
