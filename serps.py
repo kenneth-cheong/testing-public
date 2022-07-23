@@ -34,13 +34,16 @@ ranking_list = []
 for i in keywords:
     i.replace(' ','+')
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
-    time.sleep(10)
+    time.sleep(20)
 
     lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     print(lines)
     
 with open("Output.txt", "w") as text_file:
     text_file.write(lines)
+    
+with open('output.txt') as f:
+    lines = f.readlines()
     
 #list of indexes of urls
 new = [i for i, s in enumerate(lines) if 'http' in s]
