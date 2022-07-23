@@ -27,17 +27,22 @@ driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 keywords = ['sem marketing','seo marketing','social media marketing','digital marketing','marketing psg']
 
-targeted_url = 'forbes'
+targeted_url_1 = 'https://www.forbes.com/'
+targeted_url_2 = 'https://mediaonemarketing.com.sg/'
+targeted_url_3 = 'https://www.hubspot.com/'
+targeted_url_4 = 'https://www.semrush.com/'
+targeted_url_5 = 'https://www.wordstream.com/'
+targeted_url_6 = 'https://en.wikipedia.org/'
 
-ranking_list = []
+df_kws_rankings = pd.DataFrame(columns=['keyword',targeted_url_1,targeted_url_2,targeted_url_3,targeted_url_4,targeted_url_5,targeted_url_6])
 
 for i in keywords:
     i.replace(' ','+')
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
-    time.sleep(10)
+    time.sleep(5)
 
     lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
-    print(lines)
+    #print(lines)
     
     with open("Output.txt", "w") as text_file:
         text_file.write(lines)
@@ -57,9 +62,9 @@ for i in keywords:
     titles = []
     urls = []
 
-    for i in new:
-        titles.append(lines[i-1])
-        urls.append(lines[i])
+    for k in new:
+        titles.append(lines[k-1])
+        urls.append(lines[k])
 
     df = pd.DataFrame(list(zip(titles,urls)),
                    columns =['title','url'],)
@@ -71,13 +76,46 @@ for i in keywords:
     df.to_csv('output.csv')
 
     df = pd.read_csv('output.csv',index_col=0)
-
-    try:
-        ranking_list.append(((df.index[df['url'].str.contains(targeted_url)]).tolist())[0])
-    except:
-        ranking_list.append('not found')
     
-df_kws_rankings = pd.DataFrame(list(zip(keywords,ranking_list)), columns =['keyword','position'])
+    url_1_ranking = []
+    url_2_ranking = []
+    url_3_ranking = []
+    url_4_ranking = []
+    url_5_ranking = []
+    url_6_ranking = []
+    
+    try:
+        url_1_ranking.append(((df.index[df['url'].str.contains(targeted_url_1)]).tolist())[0])
+    except:
+        url_1_ranking.append('not found')
+    try:
+        url_2_ranking.append(((df.index[df['url'].str.contains(targeted_url_2)]).tolist())[0])
+    except:
+        url_2_ranking.append('not found')
+    try:
+        url_3_ranking.append(((df.index[df['url'].str.contains(targeted_url_3)]).tolist())[0])
+    except:
+        url_3_ranking.append('not found')
+    try:
+        url_4_ranking.append(((df.index[df['url'].str.contains(targeted_url_4)]).tolist())[0])
+    except:
+        url_4_ranking.append('not found')
+    try:
+        url_5_ranking.append(((df.index[df['url'].str.contains(targeted_url_5)]).tolist())[0])
+    except:
+        url_5_ranking.append('not found')
+    try:
+        url_6_ranking.append(((df.index[df['url'].str.contains(targeted_url_6)]).tolist())[0])
+    except:
+        url_6_ranking.append('not found')
+    
+    keywords_list = []
+    keywords_list.append(i)
+    
+    df_kws_rankings_temp = pd.DataFrame(list(zip(keywords_list,url_1_ranking,url_2_ranking,url_3_ranking,url_4_ranking,url_5_ranking,url_6_ranking)), columns =['keyword',targeted_url_1,targeted_url_2,targeted_url_3,targeted_url_4,targeted_url_5,targeted_url_6])
+    
+    df_kws_rankings = pd.concat([df_kws_rankings,df_kws_rankings_temp])
 
+    
 df_kws_rankings.to_csv('rankings.csv')
 
