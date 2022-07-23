@@ -27,7 +27,7 @@ driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 keywords = ['sem marketing','seo marketing','social media marketing','digital marketing','marketing psg']
 
-targeted_url = 'mediaone'
+targeted_url = 'forbes'
 
 ranking_list = []
 
