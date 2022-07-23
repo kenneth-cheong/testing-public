@@ -36,8 +36,41 @@ for i in keywords:
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
     time.sleep(10)
 
-    domain = driver.find_element(By.XPATH,'//*[@id="rso"]').text
-    print(domain)
+    lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
+    print(lines)
     
 with open("Output.txt", "w") as text_file:
-    text_file.write(domain)
+    text_file.write(lines)
+    
+#list of indexes of urls
+new = [i for i, s in enumerate(lines) if 'http' in s]
+
+#list of indexes of title
+indexes_titles = []
+for j in new:
+    title_index = j-1
+    indexes_titles.append(title_index)
+
+titles = []
+urls = []
+
+for i in new:
+    titles.append(lines[i-1])
+    urls.append(lines[i])
+
+descs = []
+index_descs = []
+    
+for j in lines:    
+    if lines.index(j) not in new and lines.index(j) not in indexes_titles:
+        index_descs.append(lines.index(j))
+        descs.append(j)
+        
+df = pd.DataFrame(list(zip(titles,indexes_titles,urls,new)),
+               columns =['title','title_index','url','url_index'],)
+df.index+=1
+df['title'] = df['title'].str.replace('\n','')
+df['url'] = df['url'].str.replace('\n','')
+df['url'] = (df['url'].str.split(' › '))
+df['url'] = df['url'].str[0]
+df.to_csv('output.csv')
