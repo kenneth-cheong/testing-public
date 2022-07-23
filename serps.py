@@ -34,7 +34,7 @@ ranking_list = []
 for i in keywords:
     i.replace(' ','+')
     driver.get('https://www.google.com/search?q='+i+"&cr=countrysg&pws=0&num=100")
-    time.sleep(20)
+    time.sleep(10)
 
     lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     print(lines)
@@ -70,7 +70,7 @@ for j in lines:
         descs.append(j)
         
 df = pd.DataFrame(list(zip(titles,indexes_titles,urls,new)),
-               columns =['title','title_index','url','url_index'],)
+               columns =['title','url'],)
 df.index+=1
 df['title'] = df['title'].str.replace('\n','')
 df['url'] = df['url'].str.replace('\n','')
