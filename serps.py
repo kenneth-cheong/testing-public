@@ -60,14 +60,6 @@ urls = []
 for i in new:
     titles.append(lines[i-1])
     urls.append(lines[i])
-
-descs = []
-index_descs = []
-    
-for j in lines:    
-    if lines.index(j) not in new and lines.index(j) not in indexes_titles:
-        index_descs.append(lines.index(j))
-        descs.append(j)
         
 df = pd.DataFrame(list(zip(titles,urls)),
                columns =['title','url'],)
