@@ -25,7 +25,7 @@ for option in options:
 
 driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
-keywords = ['sem marketing']
+keywords = ['sem marketing','seo marketing','social media marketing]
 
 targeted_url = 'forbes'
 
@@ -39,43 +39,43 @@ for i in keywords:
     lines = driver.find_element(By.XPATH,'//*[@id="rso"]').text
     print(lines)
     
-with open("Output.txt", "w") as text_file:
-    text_file.write(lines)
-    
-with open('Output.txt') as f:
-    lines = f.readlines()
-    
-#list of indexes of urls
-new = [i for i, s in enumerate(lines) if 'http' in s]
+    with open("Output.txt", "w") as text_file:
+        text_file.write(lines)
 
-#list of indexes of title
-indexes_titles = []
-for j in new:
-    title_index = j-1
-    indexes_titles.append(title_index)
+    with open('Output.txt') as f:
+        lines = f.readlines()
 
-titles = []
-urls = []
+    #list of indexes of urls
+    new = [i for i, s in enumerate(lines) if 'http' in s]
 
-for i in new:
-    titles.append(lines[i-1])
-    urls.append(lines[i])
-        
-df = pd.DataFrame(list(zip(titles,urls)),
-               columns =['title','url'],)
-df.index+=1
-df['title'] = df['title'].str.replace('\n','')
-df['url'] = df['url'].str.replace('\n','')
-df['url'] = (df['url'].str.split(' › '))
-df['url'] = df['url'].str[0]
-df.to_csv('output.csv')
+    #list of indexes of title
+    indexes_titles = []
+    for j in new:
+        title_index = j-1
+        indexes_titles.append(title_index)
 
-df = pd.read_csv('output.csv',index_col=0)
+    titles = []
+    urls = []
 
-try:
-    ranking_list.append(((df.index[df['url'].str.contains(targeted_url)]).tolist())[0])
-except:
-    ranking_list.append('not found')
+    for i in new:
+        titles.append(lines[i-1])
+        urls.append(lines[i])
+
+    df = pd.DataFrame(list(zip(titles,urls)),
+                   columns =['title','url'],)
+    df.index+=1
+    df['title'] = df['title'].str.replace('\n','')
+    df['url'] = df['url'].str.replace('\n','')
+    df['url'] = (df['url'].str.split(' › '))
+    df['url'] = df['url'].str[0]
+    df.to_csv('output.csv')
+
+    df = pd.read_csv('output.csv',index_col=0)
+
+    try:
+        ranking_list.append(((df.index[df['url'].str.contains(targeted_url)]).tolist())[0])
+    except:
+        ranking_list.append('not found')
     
 df_kws_rankings = pd.DataFrame(list(zip(keywords,ranking_list)), columns =['keyword','position'])
 
