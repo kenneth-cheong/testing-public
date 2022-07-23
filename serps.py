@@ -27,7 +27,7 @@ driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
 
 keywords = ['sem marketing']
 
-targeted_url = 'mediaone'
+targeted_url = 'forbes'
 
 ranking_list = []
 
@@ -69,3 +69,15 @@ df['url'] = df['url'].str.replace('\n','')
 df['url'] = (df['url'].str.split(' › '))
 df['url'] = df['url'].str[0]
 df.to_csv('output.csv')
+
+df = pd.read_csv('output.csv',index_col=0)
+
+try:
+    ranking_list.append(((df.index[df['url'].str.contains(targeted_url)]).tolist())[0])
+except:
+    ranking_list.append('not found')
+    
+df_kws_rankings = pd.DataFrame(list(zip(keywords,ranking_list)), columns =['keyword','position'])
+
+df_kws_rankings.to_csv('rankings.csv')
+
