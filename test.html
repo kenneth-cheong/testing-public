@@ -9,6 +9,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.8.8/brython_stdlib.js" integrity="sha256-Gnrw9tIjrsXcZSCh/wos5Jrpn0bNVNFJuNJI9d71TDs=" crossorigin="anonymous"></script>
 </head>
+
 <body onload="brython()">
     <input type="text" id="text" placeholder="Enter the website URL here">
     <span id="output"></span>
@@ -16,17 +17,10 @@
             
             from browser import document
             from browser.widgets.dialog import InfoDialog
-
-            def show_text(e):
-                document['output'].textContent = e.target.value;
-                
-            def delete_e(e):
-                document['output'].textContent = e.replace('e','_');
             
             def click(ev):
                 InfoDialog("Hello", f"Hello, {document['zone'].value} !")
 
-            document['text'].bind('input', delete_e)
             document["echo"].bind("click", click)
             
         </script>
