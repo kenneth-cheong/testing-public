@@ -12,7 +12,7 @@
 
 <body onload="brython()">
     
-    <input type="text" id="text" placeholder="Enter URL">
+    <input type="text" id="text" placeholder="Enter URL"><br>
     <span id="output"></span>
         <script type="text/python" id="script1">
             
@@ -20,8 +20,11 @@
             
             def show_text(e):
                 document['output'].textContent = e.target.value;
+            
+            def remove_a(e):
+                document['output'].textContent = e.target.value.replace('a','')
 
-            document['text'].bind('input', show_text)
+            document['text'].bind('input', remove_a)
             
             #print
             document <= "Hello world !"
