@@ -38,9 +38,9 @@
             
             req = Request(url,headers={'User-Agent':'Mozilla/5.0'})
             webpage = urlopen(req).read()
-            soup = BeautifulSoup(webpage,"html.parser")
+            soup = BeautifulSoup(webpage,"html.parser");
             
-            document <= soup
+            document <= soup;
             
             def show_text(e):
                 document['output'].textContent = e.target.value;
