@@ -34,13 +34,12 @@
             from collections import Counter
             from string import punctuation
             
-            url = e.target.value;
+            def website_soup(e):
+                url = e.target.value
+                req = Request(url,headers={'User-Agent':'Mozilla/5.0'})
+                webpage = urlopen(req).read()
+                soup = BeautifulSoup(webpage,"html.parser");
             
-            req = Request(url,headers={'User-Agent':'Mozilla/5.0'})
-            webpage = urlopen(req).read()
-            soup = BeautifulSoup(webpage,"html.parser");
-            
-            document <= soup;
             
             def show_text(e):
                 document['output'].textContent = e.target.value;
@@ -48,7 +47,7 @@
             def remove_a(e):
                 document['output'].textContent = e.target.value.replace('a','')
 
-            document['text'].bind('input', remove_a)
+            document['text'].bind('input', website_soup)
             
             #print
             document <= "Hello world !"
