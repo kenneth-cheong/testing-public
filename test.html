@@ -39,10 +39,7 @@
                 req = Request(url,headers={'User-Agent':'Mozilla/5.0'})
                 webpage = urlopen(req).read()
                 soup = BeautifulSoup(webpage,"html.parser");
-            
-            
-            def show_text(e):
-                document['output'].textContent = e.target.value;
+        
             
             def remove_a(e):
                 document['output'].textContent = e.target.value.replace('a','')
