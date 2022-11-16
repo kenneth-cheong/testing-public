@@ -11,19 +11,21 @@
 </head>
 
 <body onload="brython()">
-
+    
+    <input type="text" id="text" placeholder="Enter URL">
+    <span id="output"></span>
         <script type="text/python" id="script1">
             
             from browser import document
-            from browser.widgets.dialog import InfoDialog
             
-            def click(ev):
-                InfoDialog("Hello", f"Hello, {document['zone'].value} !")
+            def show_text(e):
+                document['output'].textContent = e.target.value;
 
-            document["echo"].bind("click", click)
+            document['text'].bind('input', show_text)
+            
+            #print
+            document <= "Hello world !"
             
         </script>
-<input id="zone">
-<button id="echo">click !</button>
 </body>
 </html> 
