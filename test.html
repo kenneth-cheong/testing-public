@@ -20,7 +20,7 @@
                 document['output'].textContent = e.target.value;
                 
             def delete_e(e):
-                document['output'].textContent = e.target.value;
+                document['output'].textContent = e.replace('e','_');
 
             document['text'].bind('input', delete_e)
             
