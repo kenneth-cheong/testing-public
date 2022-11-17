@@ -12,43 +12,40 @@
 
 <body onload="brython()">
     
-    <input type="text" id="text" placeholder="Enter URL"><br>
-    <span id="output"></span>
-        <script type="text/python" id="script1">
-            
-            from browser import document
-            import requests
-            from requests.auth import HTTPBasicAuth
-            import pandas as pd
-            from datetime import date
-            import datetime
-            import logging
-            import urllib.request
-            from urllib.parse import urlparse
-            from urllib.request import Request, urlopen
-            from bs4 import BeautifulSoup
-            import xlsxwriter
-            import shutil
-            import os
-            import re
-            from collections import Counter
-            from string import punctuation
-            
-            def website_soup(e):
-                url = e.target.value
-                req = Request(url,headers={'User-Agent':'Mozilla/5.0'})
-                webpage = urlopen(req).read()
-                soup = BeautifulSoup(webpage,"html.parser");
-        
-            
-            def remove_a(e):
-                document['output'].textContent = e.target.value.replace('a','')
+    <h1>Get a joke</h1>
 
-            document['text'].bind('input', website_soup)
-            
-            #print
-            document <= "Hello world !"
-            
-        </script>
+    <button id="joke-btn">Get Joke</button><br><br>
+    <div id="joke" class="card">Click the "get joke" button</div>
+
+    <!-- Ajax call -->
+    <script type="text/python" id="script3">
+
+        from browser import document, ajax
+        import os
+        import lxml
+        import urllib3
+        import charset_normalizer
+        import requests
+        from requests.auth import HTTPBasicAuth
+
+
+        url = 'https://api.chucknorris.io/jokes/random'
+
+        def on_complete(req):
+            import json
+            data = json.loads(req.responseText)
+            joke = data['value']
+            document['joke'].text = joke
+
+        def get_joke(e):
+            req = ajax.ajax()
+            req.open('GET', url, True)
+            req.bind('complete', on_complete)
+            document['joke'].text = 'Loading...'
+            req.send()
+
+        document['joke-btn'].bind('click', get_joke)
+    </script>
+
 </body>
 </html> 
