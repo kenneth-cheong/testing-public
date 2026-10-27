@@ -35,3 +35,25 @@ server on another.
 GitHub Actions runs the unit tests and builds a debug APK (artifact
 `qr-drop-debug-apk`). Or run `./gradlew :app:assembleDebug` here, then
 `adb install app-debug.apk`.
+
+## Releases for friends
+
+Release APKs are signed with a dedicated key (alias `qrdrop`), kept out of the
+repo. Push a tag like `qr-drop-v0.4.0` to run `.github/workflows/qr-drop-release.yml`,
+which runs the tests and builds a shrunk release APK.
+
+- If the repo has the secrets `QRDROP_KEYSTORE_B64`, `QRDROP_KEYSTORE_PASSWORD`
+  and `QRDROP_KEY_ALIAS`, CI signs the APK and publishes a GitHub Release with
+  `QR-Drop.apk`, its SHA-256 and the notes in `RELEASE_NOTES.md`.
+- Without them, the unsigned APK is uploaded as an artifact; sign it locally
+  with apksigner (or apksig) and attach it to the release.
+
+Friends download `QR-Drop.apk` from the latest release:
+https://github.com/kenneth-cheong/testing-public/releases/latest/download/QR-Drop.apk
+
+**Android developer verification.** From 30 September 2026, certified Android
+phones in Singapore (and Brazil, Indonesia, Thailand) only install apps from
+registered developers. Register `io.github.kennethcheong.qrdrop` with this
+key's SHA-256 certificate fingerprint in the Android Developer Console (the
+free hobbyist account covers a small number of devices) before sharing.
+Losing the key means friends can't update over their install, so back it up.

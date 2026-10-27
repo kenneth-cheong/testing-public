@@ -14,13 +14,32 @@ android {
         applicationId = "io.github.kennethcheong.qrdrop"
         minSdk = 30
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.3.1"
+        versionCode = 6
+        versionName = "0.4.0"
+    }
+
+    // Release signing comes from the environment (CI secrets) when it's there;
+    // otherwise the release APK is built unsigned and signed afterwards.
+    val releaseKeystore = System.getenv("QRDROP_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storeType = "pkcs12"
+                storePassword = System.getenv("QRDROP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("QRDROP_KEY_ALIAS") ?: "qrdrop"
+                keyPassword = System.getenv("QRDROP_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Drop unused code and resources: the release APK is a few MB instead of ~24 MB.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.findByName("release")
         }
     }
     compileOptions {
