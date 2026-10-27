@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Round launcher icon: a white tuning fork on a dark teal disc. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#1F5F63"
+        android:pathData="M24,0a24,24 0,1 0,0.01 0z" />
+    <!-- Prongs: a U from (17,10) down to the base at y=27, back up to (31,10). -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:pathData="M18,10v11a6,6 0,0 0,12 0v-11" />
+    <!-- Stem. -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:pathData="M24,27v12" />
+</vector>
