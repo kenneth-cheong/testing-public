@@ -1,0 +1,24 @@
+{
+  "name": "wear-claude-remote-bridge",
+  "version": "0.1.0",
+  "description": "HTTP bridge that lets the Wear Claude Remote watch app drive Claude Code sessions on this computer",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "tsc && node --test dist/*.test.js",
+    "revoke": "node dist/server.js --revoke-all"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.311"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}
