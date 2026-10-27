@@ -40,13 +40,19 @@ class DropServer(
     private var socket: ServerSocket? = null
     private var workers: ExecutorService? = null
 
-    /** Starts listening on all interfaces; returns the port actually used. */
-    fun start(preferredPort: Int = DEFAULT_PORT): Int {
-        val server = try {
-            ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(preferredPort)) }
-        } catch (e: IOException) {
-            ServerSocket(0)
-        }
+    /**
+     * Starts listening on all interfaces; returns the port actually used. Tries a few
+     * fixed ports first (another app may hold one) so the address stays the same
+     * between launches, then any free port.
+     */
+    fun start(ports: List<Int> = DEFAULT_PORTS): Int {
+        val server = ports.firstNotNullOfOrNull { port ->
+            try {
+                ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(port)) }
+            } catch (e: IOException) {
+                null
+            }
+        } ?: ServerSocket(0)
         val pool = Executors.newCachedThreadPool()
         socket = server
         workers = pool
@@ -118,7 +124,7 @@ class DropServer(
     }
 
     companion object {
-        const val DEFAULT_PORT = 8484
+        val DEFAULT_PORTS = listOf(8484, 47284, 52484)
 
         /** 10 random characters from an unambiguous alphabet. */
         fun newToken(): String {

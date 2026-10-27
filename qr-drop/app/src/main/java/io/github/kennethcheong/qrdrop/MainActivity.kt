@@ -43,6 +43,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -179,12 +180,14 @@ private fun DropApp(vm: DropViewModel = viewModel()) {
     val hotspotState by vm.hotspotState.collectAsStateWithLifecycle()
     val wifi = addresses.firstOrNull { it.kind == LocalAddress.Kind.WIFI }
     val hotspotAddress = addresses.firstOrNull { it.kind == LocalAddress.Kind.HOTSPOT }
-    var mode by remember { mutableStateOf(if (wifi != null) Mode.WIFI else Mode.HOTSPOT) }
+    // Until you pick a tab, follow the network: Same Wi-Fi when there is one.
+    var picked by remember { mutableStateOf<Mode?>(null) }
+    val mode = picked ?: if (wifi != null) Mode.WIFI else Mode.HOTSPOT
 
+    Surface(color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
@@ -198,7 +201,7 @@ private fun DropApp(vm: DropViewModel = viewModel()) {
                 Mode.entries.forEachIndexed { index, m ->
                     SegmentedButton(
                         selected = mode == m,
-                        onClick = { mode = m },
+                        onClick = { picked = m },
                         shape = SegmentedButtonDefaults.itemShape(index, Mode.entries.size),
                     ) { Text(m.label) }
                 }
@@ -211,6 +214,7 @@ private fun DropApp(vm: DropViewModel = viewModel()) {
             Spacer(Modifier.height(24.dp))
             ReceivedList(vm.received)
         }
+    }
     }
 }
 

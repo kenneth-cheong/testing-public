@@ -18,7 +18,8 @@ server on another.
 
 ## How it works
 
-- The phone runs a small web server (port 8484) while the app is open.
+- The phone runs a small web server while the app is open, on port 8484
+  (or 47284 / 52484 if another app has it, then any free port).
 - Everything lives under a random path in the QR code, e.g.
   `http://192.168.1.20:8484/k7m2pq9xha/`, so someone who merely shares the
   Wi-Fi can't send you files. The path changes each time the app starts.
