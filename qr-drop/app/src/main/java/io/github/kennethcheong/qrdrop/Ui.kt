@@ -165,7 +165,11 @@ private fun Header(deviceName: String, mode: Mode, ready: Boolean) {
                 StatusDot(if (ready) Mint else Muted, pulsing = ready)
                 Spacer(Modifier.width(7.dp))
                 Text(
-                    if (ready) "Ready on ${mode.label.lowercase()} · $deviceName" else "Waiting for a network · $deviceName",
+                    when {
+                        !ready -> "Waiting for a network · $deviceName"
+                        mode == Mode.WIFI -> "Ready on Wi-Fi · $deviceName"
+                        else -> "Ready on hotspot · $deviceName"
+                    },
                     fontSize = 13.sp,
                     color = Muted,
                     maxLines = 1,
