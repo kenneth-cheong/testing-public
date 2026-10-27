@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon: a down arrow into a tray on an indigo tile, framed by QR-style corner marks. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#3D4BD8" android:pathData="M10,0h28a10,10 0,0 1,10 10v28a10,10 0,0 1,-10 10h-28a10,10 0,0 1,-10 -10v-28a10,10 0,0 1,10 -10z" />
+    <path android:fillColor="#00000000" android:strokeColor="#9FA8FF" android:strokeWidth="2.4" android:strokeLineCap="round"
+        android:pathData="M9,15v-6h6M33,9h6v6M39,33v6h-6M15,39h-6v-6" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="3.2" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M24,13v14M18,21l6,6l6,-6M16,31v3h16v-3" />
+</vector>
