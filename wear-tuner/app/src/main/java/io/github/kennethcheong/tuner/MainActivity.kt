@@ -203,11 +203,13 @@ private fun NoteName(reading: NoteReading?, live: Boolean) {
             color = if (reading == null || !live) DIM else Color.White,
         )
         if (reading != null) {
+            // Scientific pitch notation: middle C is C4, the tuning A is A4.
             Text(
                 reading.octave.toString(),
-                fontSize = 20.sp,
-                color = DIM,
-                modifier = Modifier.padding(start = 2.dp, bottom = 10.dp),
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (live) Color(0xFFC9CDD4) else DIM,
+                modifier = Modifier.padding(start = 3.dp, bottom = 8.dp),
             )
         }
     }
