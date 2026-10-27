@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,6 +92,9 @@ private const val HOLD_FRAMES = 20
 /** Silent frames before the reading is shown greyed out as "last heard". */
 private const val LIVE_FRAMES = 4
 
+/** Frames of pitch history in the graph: about 4 seconds. */
+private const val HISTORY_FRAMES = 80
+
 /** The gauge spans ±70° either side of 12 o'clock for -50..+50 cents. */
 private const val DEGREES_PER_CENT = 1.4f
 
@@ -135,6 +139,8 @@ private fun TunerScreen(settings: TunerSettings) {
     var transposition by remember { mutableStateOf(settings.transposition) }
     var hz by remember { mutableStateOf<Float?>(null) }
     var silentFrames by remember { mutableIntStateOf(HOLD_FRAMES) }
+    // The last few seconds of pitch for the graph; NaN marks a silent frame (a gap in the line).
+    val history = remember { mutableStateListOf<Float>() }
     var error by remember { mutableStateOf<String?>(null) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -151,6 +157,8 @@ private fun TunerScreen(settings: TunerSettings) {
                     } else if (++silentFrames >= HOLD_FRAMES) {
                         smoother.reset()
                     }
+                    history.add(if (detected != null) hz ?: Float.NaN else Float.NaN)
+                    while (history.size > HISTORY_FRAMES) history.removeAt(0)
                 }
             } catch (e: CancellationException) {
                 // The screen went off or the app was left: normal, not an error. (It extends IllegalStateException.)
@@ -203,9 +211,8 @@ private fun TunerScreen(settings: TunerSettings) {
     ) {
         Gauge(cents = cents, accent = accent, glow = glow, showNeedle = reading != null)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(24.dp))
             NoteName(reading, live)
-            Spacer(Modifier.height(2.dp))
             Text(
                 text = when {
                     error != null -> error!!
@@ -224,7 +231,9 @@ private fun TunerScreen(settings: TunerSettings) {
                 letterSpacing = 1.sp,
                 color = if (live) MUTED else FAINT,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(5.dp))
+            PitchGraph(history, a4, Modifier.width(150.dp).height(30.dp))
+            Spacer(Modifier.height(7.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Pill(caption = if (transposition == Transposition.C) "CONCERT" else "IN", value = transposition.label) {
                     transposition = transposition.next()
@@ -243,7 +252,7 @@ private fun NoteName(reading: NoteReading?, live: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             reading?.name?.take(1) ?: "—",
-            fontSize = 64.sp,
+            fontSize = 56.sp,
             fontWeight = FontWeight.Light,
             color = if (reading == null) FAINT else color,
         )
@@ -334,6 +343,54 @@ private fun Gauge(cents: Float, accent: Color, glow: Float, showNeedle: Boolean)
     }
 }
 
+/**
+ * Pitch over the last few seconds, newest at the right. The fixed centre line is
+ * the target (0 cents); up is sharp, down is flat, ±50 cents at the edges, with the
+ * ±5 cent in-tune band shaded. The line breaks for silence and when you change note.
+ */
+@Composable
+private fun PitchGraph(history: List<Float>, a4: Float, modifier: Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val mid = h / 2
+        fun y(cents: Float) = mid - cents.coerceIn(-50f, 50f) / 50f * mid
+
+        drawRect(IN_TUNE.copy(alpha = 0.10f), topLeft = Offset(0f, y(5f)), size = Size(w, y(-5f) - y(5f)))
+        drawLine(TEXT.copy(alpha = 0.45f), Offset(0f, mid), Offset(w, mid), strokeWidth = 1.5f)
+        for (edge in listOf(0f, h)) drawLine(Color(0xFF1A1E25), Offset(0f, edge), Offset(w, edge), strokeWidth = 1f)
+
+        val step = w / (HISTORY_FRAMES - 1)
+        // Right-align so the newest reading is always at the right edge.
+        val offset = HISTORY_FRAMES - history.size
+        var previous: Offset? = null
+        var previousCents = 0f
+        history.forEachIndexed { index, hz ->
+            if (hz.isNaN()) {
+                previous = null
+                return@forEachIndexed
+            }
+            val cents = Notes.read(hz, a4, Transposition.C).cents
+            val point = Offset((offset + index) * step, y(cents))
+            val last = previous
+            // A jump of more than 40 cents is a different note: start a new stroke.
+            if (last != null && abs(cents - previousCents) < 40f) {
+                val age = (offset + index).toFloat() / HISTORY_FRAMES
+                drawLine(
+                    stateColor(cents).copy(alpha = 0.25f + 0.75f * age),
+                    last,
+                    point,
+                    strokeWidth = 3f,
+                    cap = StrokeCap.Round,
+                )
+            }
+            previous = point
+            previousCents = cents
+        }
+        previous?.let { drawCircle(stateColor(previousCents), radius = 4f, center = it) }
+    }
+}
+
 private fun DrawScope.bead(at: Offset, radius: Float, color: Color, glow: Float) {
     drawCircle(
         brush = Brush.radialGradient(listOf(color.copy(alpha = 0.55f * glow), Color.Transparent), center = at, radius = radius * 0.13f),
@@ -358,11 +415,11 @@ private fun Pill(caption: String, value: String, onClick: () -> Unit) {
             .background(Color(0xFF12151B), RoundedCornerShape(50))
             .border(1.dp, Color(0xFF262B34), RoundedCornerShape(50))
             .clickable(onClick = onClick)
-            .padding(vertical = 5.dp),
+            .padding(vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(caption, fontSize = 8.sp, letterSpacing = 1.5.sp, color = MUTED)
-        Text(value, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TEXT)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = TEXT)
     }
 }
 

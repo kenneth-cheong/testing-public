@@ -5,6 +5,9 @@ many cents sharp or flat you are, and the frequency.
 
 - **Needle**: the arc across the top runs from 50 cents flat to 50 cents sharp.
   Green is within 5 cents, amber within 15, red beyond.
+- **Graph**: the strip under the note traces your pitch over the last four
+  seconds, newest on the right. The fixed centre line is the target; above it
+  is sharp, below is flat, and the shaded band is ±5 cents.
 - **Transposition**: tap the left pill to cycle C (concert) → B♭ (clarinet,
   trumpet, tenor sax) → E♭ (alto and baritone sax) → F (horn). Note names are
   then shown as written for that instrument.
@@ -14,7 +17,9 @@ many cents sharp or flat you are, and the frequency.
   while it is on screen. Both settings are remembered.
 
 Pitch detection is YIN (de Cheveigné & Kawahara, 2002) on 50 ms frames, with a
-median of the last five readings to steady the needle. Unit tests check it
+median of the last five readings to steady the needle. If a half, third or
+quarter of the detected period also repeats cleanly, the shorter period wins,
+which stops a faint component at half the pitch from reading an octave low. Unit tests check it
 stays within one cent from 82 Hz to 1865 Hz on a clarinet-like tone.
 
 ## Build and install

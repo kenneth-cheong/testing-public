@@ -55,11 +55,35 @@ class PitchDetector(
         while (tau < lags) {
             if (norm[tau] < threshold) {
                 while (tau + 1 < lags && norm[tau + 1] < norm[tau]) tau++
-                return sampleRate / refine(norm, tau)
+                return sampleRate / refine(norm, shortestClearPeriod(norm, tau))
             }
             tau++
         }
         return null
+    }
+
+    /**
+     * Guards against reading an octave (or two) low: if a half, third or quarter of
+     * [tau] also repeats cleanly, that shorter period is the real one. A faint
+     * component at half the pitch (room reflections, reed buzz) otherwise makes
+     * twice the period look like the first good match.
+     */
+    private fun shortestClearPeriod(norm: FloatArray, tau: Int): Int {
+        for (divisor in 4 downTo 2) {
+            val guess = (tau.toFloat() / divisor).roundToInt()
+            if (guess < minLag) continue
+            var best = -1
+            for (candidate in (guess - 2).coerceAtLeast(minLag)..(guess + 2).coerceAtMost(norm.size - 2)) {
+                if (best < 0 || norm[candidate] < norm[best]) best = candidate
+            }
+            if (best >= 0 && norm[best] < SUBMULTIPLE_THRESHOLD) return best
+        }
+        return tau
+    }
+
+    private companion object {
+        /** How clean a shorter period's match must be to win over the first dip. */
+        const val SUBMULTIPLE_THRESHOLD = 0.3f
     }
 
     /** Parabolic interpolation around [tau] for a sub-sample lag. */

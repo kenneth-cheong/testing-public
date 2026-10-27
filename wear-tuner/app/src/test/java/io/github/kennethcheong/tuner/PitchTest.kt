@@ -32,6 +32,26 @@ class PitchTest {
     }
 
     @Test
+    fun faintHalfFrequencyComponentDoesNotDropAnOctave() {
+        // Without the sub-period check this read 221 Hz: the same error seen on the watch.
+        val tone = clarinetLike(442f)
+        val frame = FloatArray(tone.size) { i -> tone[i] + 0.12f * sin(2 * PI * 221.0 * i / sampleRate + 0.7).toFloat() }
+        val detected = requireNotNull(detector.detect(frame))
+        assertTrue("read as $detected Hz", centsOff(detected, 442f) < 20f)
+    }
+
+    @Test
+    fun strongSecondHarmonicDoesNotJumpAnOctaveUp() {
+        for (hz in listOf(82.4f, 146.8f, 233.1f, 442f, 880f)) {
+            val frame = FloatArray(detector.minFrameSize) { i ->
+                (1..5).sumOf { k -> sin(2 * PI * hz * k * i / sampleRate) * (if (k <= 2) 1.0 else 0.5) / k }.toFloat() * 0.3f
+            }
+            val detected = requireNotNull(detector.detect(frame)) { "no pitch for $hz Hz" }
+            assertTrue("$hz Hz read as $detected Hz", centsOff(detected, hz) < 20f)
+        }
+    }
+
+    @Test
     fun silenceAndQuietNoiseHaveNoPitch() {
         assertNull(detector.detect(FloatArray(detector.minFrameSize)))
         assertNull(detector.detect(clarinetLike(442f, amplitude = 0.001f)))
