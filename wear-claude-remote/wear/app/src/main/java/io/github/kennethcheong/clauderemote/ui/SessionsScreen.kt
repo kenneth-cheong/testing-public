@@ -28,7 +28,12 @@ import io.github.kennethcheong.clauderemote.data.SessionSummary
 import kotlinx.coroutines.launch
 
 @Composable
-fun SessionsScreen(viewModel: SessionsViewModel, onOpen: (String) -> Unit, onUnpair: () -> Unit) {
+fun SessionsScreen(
+    viewModel: SessionsViewModel,
+    onOpen: (String) -> Unit,
+    onTemplates: () -> Unit,
+    onUnpair: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel) {
@@ -51,6 +56,14 @@ fun SessionsScreen(viewModel: SessionsViewModel, onOpen: (String) -> Unit, onUnp
     ) { contentPadding ->
         ScalingLazyColumn(state = listState, contentPadding = contentPadding) {
             item { ListHeader { Text("Claude Code") } }
+            item {
+                FilledTonalButton(
+                    onClick = onTemplates,
+                    enabled = !state.creating,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("New from template") },
+                )
+            }
             state.error?.let { error ->
                 item { Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
             }

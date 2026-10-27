@@ -19,6 +19,8 @@ import io.github.kennethcheong.clauderemote.ui.AppState
 import io.github.kennethcheong.clauderemote.ui.SessionsScreen
 import io.github.kennethcheong.clauderemote.ui.SessionsViewModel
 import io.github.kennethcheong.clauderemote.ui.SetupScreen
+import io.github.kennethcheong.clauderemote.ui.TemplatesScreen
+import io.github.kennethcheong.clauderemote.ui.TemplatesViewModel
 import io.github.kennethcheong.clauderemote.ui.ThreadScreen
 import io.github.kennethcheong.clauderemote.ui.ThreadViewModel
 
@@ -50,12 +52,33 @@ private fun RemoteNavHost(client: BridgeClient, onUnpair: () -> Unit) {
             SessionsScreen(
                 viewModel = viewModel { SessionsViewModel(client) },
                 onOpen = { id -> navController.navigate("thread/$id") },
+                onTemplates = { navController.navigate("templates") },
                 onUnpair = onUnpair,
             )
         }
         composable("thread/{id}") { entry ->
             val id = entry.arguments?.getString("id").orEmpty()
-            ThreadScreen(viewModel = viewModel(key = id) { ThreadViewModel(client, id) })
+            ThreadScreen(
+                viewModel = viewModel(key = id) { ThreadViewModel(client, id) },
+                onTemplates = { navController.navigate("templates/$id") },
+            )
+        }
+        // A template from the session list starts a new session and opens it in place of the picker.
+        composable("templates") {
+            TemplatesScreen(
+                viewModel = viewModel(key = "templates-new") { TemplatesViewModel(client, null) },
+                title = "New from template",
+                onSent = { id -> navController.navigate("thread/$id") { popUpTo("sessions") } },
+            )
+        }
+        // A template from a thread is sent as the next reply, then back to the thread.
+        composable("templates/{id}") { entry ->
+            val id = entry.arguments?.getString("id").orEmpty()
+            TemplatesScreen(
+                viewModel = viewModel(key = "templates-$id") { TemplatesViewModel(client, id) },
+                title = "Send template",
+                onSent = { navController.popBackStack() },
+            )
         }
     }
 }

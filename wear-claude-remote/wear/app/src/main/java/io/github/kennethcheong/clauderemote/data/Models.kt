@@ -47,6 +47,13 @@ data class SessionDetail(
     val messages: List<ChatLine> = emptyList(),
 )
 
+/** A canned prompt from the bridge's templates file. */
+@Serializable
+data class PromptTemplate(
+    val label: String,
+    val text: String,
+)
+
 @Serializable
 internal data class CreatedSession(val id: String)
 

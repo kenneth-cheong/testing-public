@@ -45,6 +45,7 @@ Optional settings (environment variables):
 | `BRIDGE_DEFAULT_CWD` | your home directory | Working directory for sessions started from the watch |
 | `BRIDGE_APPROVAL_TIMEOUT_MS` | `300000` | How long a tool call waits for Allow/Deny before it is denied |
 | `BRIDGE_STATE_DIR` | `~/.config/wear-claude-remote` | Where paired watches are stored |
+| `BRIDGE_TEMPLATES_FILE` | `templates.json` in the state directory | Prompt templates the watch can send with one tap |
 
 **How the token is protected.** No secret is built into the app.
 - **Pairing:** pairing gives each watch its own random 256-bit token.
@@ -100,6 +101,13 @@ use `tailscale serve --bg 8787` instead. A Cloudflare named tunnel works too.
   The **New** button starts a session from voice, keyboard or handwriting.
 - **Thread**: the last 30 lines of the conversation. Tool calls appear as `⚙ Bash: npm test`.
   Use **Reply** to continue the session, or **Stop** to interrupt Claude mid-run.
+- **Templates**: canned prompts you send with one tap. **New from template**
+  (top of the session list) starts a session with one; **Templates** (under
+  a thread) sends one as the next reply. They live in
+  `~/.config/wear-claude-remote/templates.json` on your computer, a list of
+  `{ "label": "Status", "text": "What's left?" }` entries. The bridge writes a
+  starter list on first run and re-reads the file every time the watch opens
+  the list, so edits need no restart or rebuild.
 - **Unpair watch** (at the bottom of the list) forgets this watch's token.
 - **Approvals**: when Claude wants to use a tool that your Claude Code
   permission settings don't already allow, the watch buzzes and shows
@@ -116,6 +124,7 @@ All endpoints except `/health` and `/pair` need `Authorization: Bearer <device t
 |---|---|---|
 | `GET /health` | | `{ ok: true }` |
 | `POST /pair` | `{ code, name }` | `{ token }` for a correct, unexpired pairing code |
+| `GET /templates` | | `[{ label, text }]` from the templates file |
 | `GET /sessions?limit=20` | | `[{ id, title, cwd, lastModified, status }]` |
 | `POST /sessions` | `{ text, cwd? }` | `202 { id }`, starts a new session |
 | `GET /sessions/:id?limit=30` | | `{ id, title, status, reply?, error?, pending?, messages: [{ role, text }] }` |

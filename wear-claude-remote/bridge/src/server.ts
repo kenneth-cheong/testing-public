@@ -17,6 +17,7 @@ import {
   type PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
 import { DeviceRegistry, PairingCode, PAIRING_CODE_TTL_MS } from "./devices.js";
+import { TemplateStore } from "./templates.js";
 import { simplifyMessages, summarizeToolCall, type ChatLine } from "./transcript.js";
 
 const HOST = process.env.BRIDGE_HOST ?? "127.0.0.1";
@@ -29,6 +30,7 @@ const STATE_DIR = process.env.BRIDGE_STATE_DIR ?? join(homedir(), ".config", "we
 
 const devices = new DeviceRegistry(join(STATE_DIR, "devices.json"));
 const pairing = new PairingCode();
+const templates = new TemplateStore(process.env.BRIDGE_TEMPLATES_FILE ?? join(STATE_DIR, "templates.json"));
 
 if (process.argv.includes("--revoke-all")) {
   devices.revokeAll();
@@ -193,6 +195,16 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
   if (!authorized(req)) return send(res, 401, { error: "Unauthorized" });
 
+  // GET /templates  -> [{ label, text }]
+  if (method === "GET" && url.pathname === "/templates") {
+    try {
+      return send(res, 200, templates.list());
+    } catch (err) {
+      console.error(`Can't read ${templates.path}: ${String(err)}`);
+      return send(res, 500, { error: "Templates file is not valid JSON" });
+    }
+  }
+
   // GET /sessions
   if (parts.length === 1 && parts[0] === "sessions" && method === "GET") {
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 20) || 20, 100);
@@ -268,6 +280,8 @@ createServer((req, res) => {
 }).listen(PORT, HOST, () => {
   console.log(`Wear Claude Remote bridge listening on http://${HOST}:${PORT}`);
   console.log(`${devices.count} watch(es) paired. Unpair all with: npm run revoke`);
+  templates.ensureFile();
+  console.log(`Prompt templates: ${templates.path}`);
   showPairingCode();
   if (process.stdin.isTTY) createInterface({ input: process.stdin }).on("line", showPairingCode);
 });

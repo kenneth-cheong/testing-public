@@ -37,6 +37,9 @@ class BridgeClient(
     suspend fun listSessions(limit: Int = 20): List<SessionSummary> =
         get(url("sessions") { addQueryParameter("limit", limit.toString()) })
 
+    /** The prompt templates kept in a file on the bridge's computer. */
+    suspend fun templates(): List<PromptTemplate> = get(url("templates"))
+
     suspend fun session(id: String, limit: Int = 30): SessionDetail =
         get(url("sessions", id) { addQueryParameter("limit", limit.toString()) })
 

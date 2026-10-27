@@ -33,7 +33,7 @@ import io.github.kennethcheong.clauderemote.data.PendingApproval
 import io.github.kennethcheong.clauderemote.data.RunStatus
 
 @Composable
-fun ThreadScreen(viewModel: ThreadViewModel) {
+fun ThreadScreen(viewModel: ThreadViewModel, onTemplates: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel) {
@@ -87,6 +87,14 @@ fun ThreadScreen(viewModel: ThreadViewModel) {
                         detail?.status == RunStatus.ERROR -> StatusText("Run failed: ${detail.error ?: "unknown error"}", isError = true)
                     }
                     state.error?.let { StatusText(it, isError = true) }
+                    if (detail != null && !busy && pending == null) {
+                        FilledTonalButton(
+                            onClick = onTemplates,
+                            enabled = !state.sending,
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            label = { Text("Templates") },
+                        )
+                    }
                 }
             }
         }

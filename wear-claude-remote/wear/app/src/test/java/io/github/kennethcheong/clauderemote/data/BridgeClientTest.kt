@@ -36,6 +36,18 @@ class BridgeClientTest {
     }
 
     @Test
+    fun templatesAreFetchedWithToken() = runTest {
+        server.enqueue(MockResponse().setBody("""[{"label":"Status","text":"What's left?"}]"""))
+
+        val templates = client.templates()
+
+        assertEquals(listOf(PromptTemplate("Status", "What's left?")), templates)
+        val request = server.takeRequest()
+        assertEquals("/templates", request.path)
+        assertEquals("Bearer secret-token", request.getHeader("Authorization"))
+    }
+
+    @Test
     fun sessionParsesPendingApproval() = runTest {
         server.enqueue(MockResponse().setBody(
             """{"id":"a","title":"t","status":"waiting_approval","pending":{"id":"p","tool":"Bash","summary":"Bash: ls"},

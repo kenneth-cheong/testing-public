@@ -3,6 +3,7 @@ package io.github.kennethcheong.clauderemote.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.kennethcheong.clauderemote.data.BridgeClient
+import io.github.kennethcheong.clauderemote.data.PromptTemplate
 import io.github.kennethcheong.clauderemote.data.RunStatus
 import io.github.kennethcheong.clauderemote.data.SessionDetail
 import io.github.kennethcheong.clauderemote.data.SessionSummary
@@ -62,6 +63,43 @@ class SessionsViewModel(private val client: BridgeClient) : ViewModel() {
         } finally {
             _state.update { it.copy(creating = false) }
             wake.trySend(Unit)
+        }
+    }
+}
+
+/**
+ * Lists the bridge's prompt templates and sends one: as a reply to [sessionId],
+ * or as the first prompt of a new session when [sessionId] is null.
+ */
+class TemplatesViewModel(private val client: BridgeClient, private val sessionId: String?) : ViewModel() {
+    data class UiState(
+        val templates: List<PromptTemplate>? = null,
+        val error: String? = null,
+        val sending: Boolean = false,
+    )
+
+    private val _state = MutableStateFlow(UiState())
+    val state: StateFlow<UiState> = _state.asStateFlow()
+
+    suspend fun load() {
+        try {
+            val templates = client.templates()
+            _state.update { it.copy(templates = templates, error = null) }
+        } catch (e: IOException) {
+            _state.update { it.copy(error = e.message ?: "Can't reach bridge") }
+        }
+    }
+
+    /** Sends [template]; returns the session it went to, or null on failure. */
+    suspend fun send(template: PromptTemplate): String? {
+        _state.update { it.copy(sending = true, error = null) }
+        return try {
+            sessionId?.also { client.sendMessage(it, template.text) } ?: client.newSession(template.text)
+        } catch (e: IOException) {
+            _state.update { it.copy(error = e.message ?: "Couldn't send") }
+            null
+        } finally {
+            _state.update { it.copy(sending = false) }
         }
     }
 }
