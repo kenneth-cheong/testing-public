@@ -12,7 +12,9 @@ buzz on your wrist when Claude needs a decision).
 There is no public API for claude.ai chats or claude.ai/code cloud sessions,
 so this works with the **Claude Code sessions on the computer running the
 bridge**. That includes sessions you started in a terminal: they show up in the
-list and you can continue them from the watch.
+list and you can continue them from the watch. Run a bridge on each computer
+you use (say a MacBook Air and a MacBook Pro) and pair the watch with all of
+them to get one list labelled by computer.
 
 ## What's here
 
@@ -46,6 +48,7 @@ Optional settings (environment variables):
 | `BRIDGE_APPROVAL_TIMEOUT_MS` | `300000` | How long a tool call waits for Allow/Deny before it is denied |
 | `BRIDGE_STATE_DIR` | `~/.config/wear-claude-remote` | Where paired watches are stored |
 | `BRIDGE_TEMPLATES_FILE` | `templates.json` in the state directory | Prompt templates the watch can send with one tap |
+| `BRIDGE_MACHINE_NAME` | the computer name, shortened (`Kenneth's MacBook Air` → `MacBook Air`) | Label the watch shows for this computer's sessions |
 
 **How the token is protected.** No secret is built into the app.
 - **Pairing:** pairing gives each watch its own random 256-bit token.
@@ -95,10 +98,18 @@ use `tailscale serve --bg 8787` instead. A Cloudflare named tunnel works too.
 2. Set **Bridge address**. A bare host name like `my-pc.tailnet.ts.net` is enough.
 3. Tap **Enter pairing code** and type or say the code from the bridge terminal.
 
+**Add another computer:** start a bridge there (and a tunnel, step 2), then on
+the watch scroll to the bottom of the session list, tap **Add computer** and
+pair the same way. Each computer gets its own token.
+
 ## Using it
 
 - **Session list**: newest first, with the project folder and the last activity.
   The **New** button starts a session from voice, keyboard or handwriting.
+  With more than one computer paired, sessions from all of them share the list,
+  each labelled with its computer (`MacBook Pro · api · 5 min ago`), and **New**
+  first asks which computer to run on. A computer that can't be reached shows a
+  one-line error and keeps its last known sessions.
 - **Thread**: the last 30 lines of the conversation. Tool calls appear as `⚙ Bash: npm test`.
   Use **Reply** to continue the session, or **Stop** to interrupt Claude mid-run.
 - **Templates**: canned prompts you send with one tap. **New from template**
@@ -108,7 +119,7 @@ use `tailscale serve --bg 8787` instead. A Cloudflare named tunnel works too.
   `{ "label": "Status", "text": "What's left?" }` entries. The bridge writes a
   starter list on first run and re-reads the file every time the watch opens
   the list, so edits need no restart or rebuild.
-- **Unpair watch** (at the bottom of the list) forgets this watch's token.
+- **Unpair MacBook Pro** and the like (one per computer, at the bottom of the list) forget the watch's token for that computer.
 - **Approvals**: when Claude wants to use a tool that your Claude Code
   permission settings don't already allow, the watch buzzes and shows
   **Allow / Deny**. If nobody answers within 5 minutes, the request is denied.
@@ -123,7 +134,8 @@ All endpoints except `/health` and `/pair` need `Authorization: Bearer <device t
 | Method & path | Body | Result |
 |---|---|---|
 | `GET /health` | | `{ ok: true }` |
-| `POST /pair` | `{ code, name }` | `{ token }` for a correct, unexpired pairing code |
+| `POST /pair` | `{ code, name }` | `{ token, machine }` for a correct, unexpired pairing code |
+| `GET /info` | | `{ machine }`, the label for this computer |
 | `GET /templates` | | `[{ label, text }]` from the templates file |
 | `GET /sessions?limit=20` | | `[{ id, title, cwd, lastModified, status }]` |
 | `POST /sessions` | `{ text, cwd? }` | `202 { id }`, starts a new session |

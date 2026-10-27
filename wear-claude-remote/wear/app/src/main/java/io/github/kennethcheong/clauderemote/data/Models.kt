@@ -66,8 +66,12 @@ internal data class ApprovalBody(val approvalId: String, val allow: Boolean)
 @Serializable
 internal data class PairBody(val code: String, val name: String)
 
+/** [machine] is the bridge computer's short name, e.g. "MacBook Air"; older bridges omit it. */
 @Serializable
-internal data class PairResult(val token: String)
+data class PairResult(val token: String, val machine: String? = null)
+
+@Serializable
+data class BridgeInfo(val machine: String)
 
 @Serializable
 internal data class ErrorBody(val error: String)

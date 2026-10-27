@@ -79,15 +79,32 @@ class BridgeClientTest {
 
     @Test
     fun pairSendsCodeWithoutAuthorization() = runTest {
-        server.enqueue(MockResponse().setBody("""{"token":"device-token"}"""))
+        server.enqueue(MockResponse().setBody("""{"token":"device-token","machine":"MacBook Pro"}"""))
 
-        val token = BridgeClient(server.url("/").toString()).pair("123 456", "Pixel Watch")
+        val result = BridgeClient(server.url("/").toString()).pair("123 456", "Pixel Watch")
 
-        assertEquals("device-token", token)
+        assertEquals(PairResult("device-token", "MacBook Pro"), result)
         val request = server.takeRequest()
         assertEquals("/pair", request.path)
         assertNull(request.getHeader("Authorization"))
         assertEquals("""{"code":"123 456","name":"Pixel Watch"}""", request.body.readUtf8())
+    }
+
+    @Test
+    fun pairAcceptsOlderBridgeWithoutMachineName() = runTest {
+        server.enqueue(MockResponse().setBody("""{"token":"device-token"}"""))
+
+        val result = BridgeClient(server.url("/").toString()).pair("123456", "Pixel Watch")
+
+        assertEquals(PairResult("device-token", null), result)
+    }
+
+    @Test
+    fun infoReturnsMachineName() = runTest {
+        server.enqueue(MockResponse().setBody("""{"machine":"MacBook Air"}"""))
+
+        assertEquals(BridgeInfo("MacBook Air"), client.info())
+        assertEquals("/info", server.takeRequest().path)
     }
 
     @Test

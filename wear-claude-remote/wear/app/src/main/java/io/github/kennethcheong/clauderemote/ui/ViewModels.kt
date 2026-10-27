@@ -8,7 +8,10 @@ import io.github.kennethcheong.clauderemote.data.RunStatus
 import io.github.kennethcheong.clauderemote.data.SessionDetail
 import io.github.kennethcheong.clauderemote.data.SessionSummary
 import java.io.IOException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,35 +33,58 @@ private suspend fun pollLoop(wake: Channel<Unit>, load: suspend () -> Boolean) {
     }
 }
 
-class SessionsViewModel(private val client: BridgeClient) : ViewModel() {
+/** A session and the computer it lives on. */
+data class MachineSession(val bridgeId: String, val machine: String, val session: SessionSummary)
+
+/** Polls every paired bridge and merges their sessions into one list, newest first. */
+class SessionsViewModel(private val bridges: List<Bridge>) : ViewModel() {
     data class UiState(
-        val sessions: List<SessionSummary>? = null,
-        val error: String? = null,
+        val sessions: List<MachineSession>? = null,
+        /** One line per bridge that couldn't be reached, e.g. "MacBook Pro: Can't reach bridge". */
+        val errors: List<String> = emptyList(),
         val creating: Boolean = false,
     )
+
+    private class Fetch(val bridge: Bridge, val sessions: List<SessionSummary>?, val error: String?)
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
     suspend fun pollWhileVisible() = pollLoop(wake) {
-        try {
-            val sessions = client.listSessions()
-            _state.update { it.copy(sessions = sessions, error = null) }
-            sessions.any { RunStatus.isBusy(it.status) }
-        } catch (e: IOException) {
-            _state.update { it.copy(error = e.message ?: "Can't reach bridge") }
-            false
+        val fetches = coroutineScope {
+            bridges.map { bridge ->
+                async {
+                    try {
+                        Fetch(bridge, bridge.client.listSessions(), null)
+                    } catch (e: IOException) {
+                        Fetch(bridge, null, e.message ?: "Can't reach bridge")
+                    }
+                }
+            }.awaitAll()
         }
+        val previous = _state.value.sessions.orEmpty()
+        val merged = fetches.flatMap { fetch ->
+            // Keep the last known sessions of a computer that just blipped instead of dropping them.
+            fetch.sessions?.map { MachineSession(fetch.bridge.id, fetch.bridge.name, it) }
+                ?: previous.filter { it.bridgeId == fetch.bridge.id }
+        }.sortedByDescending { it.session.lastModified }
+        val errors = fetches.mapNotNull { fetch ->
+            fetch.error?.let { if (bridges.size > 1) "${fetch.bridge.name}: $it" else it }
+        }
+        _state.update { state ->
+            state.copy(sessions = merged.takeIf { fetches.any { it.sessions != null } } ?: state.sessions, errors = errors)
+        }
+        merged.any { RunStatus.isBusy(it.session.status) }
     }
 
-    /** Starts a session from a voice prompt; returns its id, or null on failure. */
-    suspend fun newSession(text: String): String? {
+    /** Starts a session on [bridge] from a voice prompt; returns its id, or null on failure. */
+    suspend fun newSession(bridge: Bridge, text: String): String? {
         _state.update { it.copy(creating = true) }
         return try {
-            client.newSession(text)
+            bridge.client.newSession(text)
         } catch (e: IOException) {
-            _state.update { it.copy(error = e.message ?: "Couldn't start session") }
+            _state.update { it.copy(errors = listOf(e.message ?: "Couldn't start session")) }
             null
         } finally {
             _state.update { it.copy(creating = false) }

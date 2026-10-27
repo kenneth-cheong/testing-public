@@ -17,6 +17,7 @@ import {
   type PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
 import { DeviceRegistry, PairingCode, PAIRING_CODE_TTL_MS } from "./devices.js";
+import { computerName } from "./machine.js";
 import { TemplateStore } from "./templates.js";
 import { simplifyMessages, summarizeToolCall, type ChatLine } from "./transcript.js";
 
@@ -31,6 +32,8 @@ const STATE_DIR = process.env.BRIDGE_STATE_DIR ?? join(homedir(), ".config", "we
 const devices = new DeviceRegistry(join(STATE_DIR, "devices.json"));
 const pairing = new PairingCode();
 const templates = new TemplateStore(process.env.BRIDGE_TEMPLATES_FILE ?? join(STATE_DIR, "templates.json"));
+// Shown on the watch next to each session, so you can tell your computers apart.
+const MACHINE = computerName();
 
 if (process.argv.includes("--revoke-all")) {
   devices.revokeAll();
@@ -181,7 +184,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 
   if (method === "GET" && url.pathname === "/health") return send(res, 200, { ok: true });
 
-  // POST /pair { code, name }  -> { token }  (the only unauthenticated write)
+  // POST /pair { code, name }  -> { token, machine }  (the only unauthenticated write)
   if (method === "POST" && url.pathname === "/pair") {
     const body = await readJson(req);
     if (!pairing.active) return send(res, 403, { error: "No active pairing code. Press Enter in the bridge terminal." });
@@ -190,10 +193,13 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const name = (typeof body.name === "string" ? body.name : "").replace(/[\u0000-\u001f\u007f-\u009f]/g, "").slice(0, 80) || "watch";
     const token = devices.add(name);
     console.log(`Paired "${name}".`);
-    return send(res, 200, { token });
+    return send(res, 200, { token, machine: MACHINE });
   }
 
   if (!authorized(req)) return send(res, 401, { error: "Unauthorized" });
+
+  // GET /info  -> { machine }
+  if (method === "GET" && url.pathname === "/info") return send(res, 200, { machine: MACHINE });
 
   // GET /templates  -> [{ label, text }]
   if (method === "GET" && url.pathname === "/templates") {
@@ -278,7 +284,7 @@ createServer((req, res) => {
     send(res, 500, { error: "Internal error" });
   });
 }).listen(PORT, HOST, () => {
-  console.log(`Wear Claude Remote bridge listening on http://${HOST}:${PORT}`);
+  console.log(`Wear Claude Remote bridge for "${MACHINE}" listening on http://${HOST}:${PORT}`);
   console.log(`${devices.count} watch(es) paired. Unpair all with: npm run revoke`);
   templates.ensureFile();
   console.log(`Prompt templates: ${templates.path}`);

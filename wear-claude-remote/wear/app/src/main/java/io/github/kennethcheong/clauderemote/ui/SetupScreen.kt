@@ -23,9 +23,12 @@ import androidx.wear.compose.material3.Text
 import java.io.IOException
 import kotlinx.coroutines.launch
 
-/** First-run screen: set the bridge address, then pair with the code the bridge prints. */
+/**
+ * Pairs with a bridge: set its address, then enter the code the bridge prints.
+ * Used on first run and from "Add computer"; [onPaired] runs after a successful pairing.
+ */
 @Composable
-fun SetupScreen(appState: AppState) {
+fun SetupScreen(appState: AppState, title: String = "Pair with bridge", onPaired: () -> Unit = {}) {
     val url by appState.url.collectAsStateWithLifecycle()
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -41,6 +44,7 @@ fun SetupScreen(appState: AppState) {
             message = null
             try {
                 appState.paired(client.pair(code, Build.MODEL))
+                onPaired()
             } catch (e: IOException) {
                 message = e.message ?: "Pairing failed"
             } finally {
@@ -52,7 +56,7 @@ fun SetupScreen(appState: AppState) {
     val listState = rememberScalingLazyListState()
     ScreenScaffold(scrollState = listState) { contentPadding ->
         ScalingLazyColumn(state = listState, contentPadding = contentPadding) {
-            item { ListHeader { Text("Pair with bridge") } }
+            item { ListHeader { Text(title) } }
             item {
                 FilledTonalButton(
                     onClick = editUrl,

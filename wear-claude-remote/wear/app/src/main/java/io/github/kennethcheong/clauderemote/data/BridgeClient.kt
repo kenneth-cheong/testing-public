@@ -31,8 +31,11 @@ class BridgeClient(
     private val base: HttpUrl = baseUrl.trimEnd('/').toHttpUrl()
 
     /** Exchanges a one-time pairing code shown by the bridge for this watch's own token. */
-    suspend fun pair(code: String, deviceName: String): String =
-        post<PairResult>(url("pair"), json.encodeToString(PairBody(code, deviceName))).token
+    suspend fun pair(code: String, deviceName: String): PairResult =
+        post(url("pair"), json.encodeToString(PairBody(code, deviceName)))
+
+    /** Which computer this bridge runs on. */
+    suspend fun info(): BridgeInfo = get(url("info"))
 
     suspend fun listSessions(limit: Int = 20): List<SessionSummary> =
         get(url("sessions") { addQueryParameter("limit", limit.toString()) })
