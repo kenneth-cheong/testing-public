@@ -1,0 +1,4 @@
+# Copy to local.properties (git-ignored) and fill in.
+# Android Studio adds sdk.dir automatically.
+bridge.url=https://your-computer.your-tailnet.ts.net
+bridge.token=paste-the-same-BRIDGE_TOKEN-you-started-the-bridge-with

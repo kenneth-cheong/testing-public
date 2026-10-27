@@ -1,0 +1,78 @@
+package io.github.kennethcheong.clauderemote.data
+
+import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Before
+import org.junit.Test
+
+class BridgeClientTest {
+    private val server = MockWebServer()
+    private lateinit var client: BridgeClient
+
+    @Before
+    fun setUp() {
+        server.start()
+        client = BridgeClient(server.url("/").toString(), "secret-token")
+    }
+
+    @After
+    fun tearDown() = server.shutdown()
+
+    @Test
+    fun listSessionsSendsTokenAndParsesMissingFields() = runTest {
+        server.enqueue(MockResponse().setBody("""[{"id":"a","title":"Fix build","lastModified":5,"status":"running","extra":1}]"""))
+
+        val sessions = client.listSessions(limit = 5)
+
+        assertEquals(listOf(SessionSummary(id = "a", title = "Fix build", lastModified = 5, status = "running")), sessions)
+        val request = server.takeRequest()
+        assertEquals("/sessions?limit=5", request.path)
+        assertEquals("Bearer secret-token", request.getHeader("Authorization"))
+    }
+
+    @Test
+    fun sessionParsesPendingApproval() = runTest {
+        server.enqueue(MockResponse().setBody(
+            """{"id":"a","title":"t","status":"waiting_approval","pending":{"id":"p","tool":"Bash","summary":"Bash: ls"},
+               "messages":[{"role":"user","text":"hi"}]}"""
+        ))
+
+        val detail = client.session("a")
+
+        assertEquals(PendingApproval("p", "Bash", "Bash: ls"), detail.pending)
+        assertEquals(listOf(ChatLine("user", "hi")), detail.messages)
+        assertNull(detail.reply)
+    }
+
+    @Test
+    fun postsJsonBodies() = runTest {
+        server.enqueue(MockResponse().setResponseCode(202).setBody("""{"id":"new-id"}"""))
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+
+        assertEquals("new-id", client.newSession("hello \"watch\""))
+        client.answerApproval("new-id", "p1", allow = false)
+
+        val create = server.takeRequest()
+        assertEquals("POST", create.method)
+        assertEquals("""{"text":"hello \"watch\""}""", create.body.readUtf8())
+        val approval = server.takeRequest()
+        assertEquals("/sessions/new-id/approval", approval.path)
+        assertEquals("""{"approvalId":"p1","allow":false}""", approval.body.readUtf8())
+    }
+
+    @Test
+    fun errorsCarryTheBridgeMessage() = runTest {
+        server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"Session is busy"}"""))
+
+        val error = assertThrows(BridgeException::class.java) {
+            kotlinx.coroutines.runBlocking { client.sendMessage("a", "x") }
+        }
+        assertEquals(409, error.status)
+        assertEquals("Session is busy", error.message)
+    }
+}
