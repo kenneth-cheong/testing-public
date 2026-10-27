@@ -19,9 +19,34 @@ fun interface FileSink {
 data class SavedFile(val name: String, val bytes: Long, val uri: String)
 
 sealed interface DropEvent {
-    data class Receiving(val name: String) : DropEvent
+    /** [total] is the file size from the request, or null if the browser didn't say. */
+    data class Receiving(val name: String, val total: Long? = null) : DropEvent
+    data class Progress(val name: String, val bytes: Long, val total: Long?) : DropEvent
     data class Received(val file: SavedFile) : DropEvent
     data class Failed(val name: String, val reason: String) : DropEvent
+}
+
+/** Counts bytes as they're read and reports the running total at most every [intervalMs]. */
+private class CountingInputStream(
+    input: InputStream,
+    private val intervalMs: Long,
+    private val report: (Long) -> Unit,
+) : java.io.FilterInputStream(input) {
+    private var count = 0L
+    private var lastReport = 0L
+
+    override fun read(): Int = super.read().also { if (it >= 0) advance(1) }
+
+    override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) advance(it.toLong()) }
+
+    private fun advance(n: Long) {
+        count += n
+        val now = System.currentTimeMillis()
+        if (now - lastReport >= intervalMs) {
+            lastReport = now
+            report(count)
+        }
+    }
 }
 
 /**
@@ -35,6 +60,8 @@ class DropServer(
     private val token: String,
     private val sink: FileSink,
     private val page: () -> String,
+    /** How often to report [DropEvent.Progress] while a file streams in. */
+    private val progressIntervalMs: Long = 200,
     private val onEvent: (DropEvent) -> Unit = {},
 ) {
     private var socket: ServerSocket? = null
@@ -110,9 +137,11 @@ class DropServer(
             throw HttpException(411, "Missing Content-Length")
         }
         val name = safeFileName(request.query["name"])
-        onEvent(DropEvent.Receiving(name))
+        val total = request.headers["content-length"]?.toLongOrNull()
+        onEvent(DropEvent.Receiving(name, total))
+        val counted = CountingInputStream(request.body, progressIntervalMs) { bytes -> onEvent(DropEvent.Progress(name, bytes, total)) }
         val saved = try {
-            sink.save(name, request.headers["content-type"]?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() }, request.body)
+            sink.save(name, request.headers["content-type"]?.substringBefore(';')?.trim()?.takeIf { it.isNotEmpty() }, counted)
         } catch (e: IOException) {
             onEvent(DropEvent.Failed(name, e.message ?: "Upload failed"))
             // If the browser is still there, tell it; if it went away, there's no one to tell.

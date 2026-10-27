@@ -48,7 +48,23 @@ class DropServerTest {
         assertTrue(response, response.startsWith("HTTP/1.1 201"))
         assertEquals(body, String(sink.files.getValue("My Photo +1.jpg")))
         assertEquals("image/jpeg", sink.types["My Photo +1.jpg"])
-        assertEquals(listOf<DropEvent>(DropEvent.Receiving("My Photo +1.jpg"), DropEvent.Received(SavedFile("My Photo +1.jpg", 11, "memory://My Photo +1.jpg"))), events)
+        assertEquals(
+            listOf<DropEvent>(DropEvent.Receiving("My Photo +1.jpg", 11), DropEvent.Received(SavedFile("My Photo +1.jpg", 11, "memory://My Photo +1.jpg"))),
+            events.filterNot { it is DropEvent.Progress },
+        )
+    }
+
+    @Test
+    fun reportsProgressUpToTheFullSize() {
+        val progress = mutableListOf<DropEvent.Progress>()
+        val everyRead = DropServer("t", sink, page = { "" }, progressIntervalMs = 0) { if (it is DropEvent.Progress) progress += it }
+        val payload = ByteArray(200_000) { it.toByte() }
+        val head = "PUT /t/upload?name=p.bin HTTP/1.1\r\nContent-Length: ${payload.size}\r\n\r\n".toByteArray(Charsets.ISO_8859_1)
+        everyRead.handle(ByteArrayInputStream(head + payload), ByteArrayOutputStream())
+
+        assertTrue(progress.isNotEmpty())
+        assertEquals(progress.map { it.bytes }.sorted(), progress.map { it.bytes })
+        assertEquals(DropEvent.Progress("p.bin", 200_000, 200_000), progress.last())
     }
 
     @Test

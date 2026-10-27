@@ -38,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
@@ -88,8 +89,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** A file in the "Received" list. [uri] is set once it is saved. */
-data class Received(val id: Long, val name: String, val bytes: Long = 0, val uri: String? = null, val failed: String? = null)
+/** A file in the "Received" list. [uri] is set once it is saved; until then [bytes] of [total] have arrived. */
+data class Received(
+    val id: Long,
+    val name: String,
+    val bytes: Long = 0,
+    val total: Long? = null,
+    val uri: String? = null,
+    val failed: String? = null,
+)
 
 sealed interface HotspotState {
     data object Off : HotspotState
@@ -142,7 +150,8 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun onEvent(event: DropEvent) {
         when (event) {
-            is DropEvent.Receiving -> received.add(0, Received(nextId++, event.name))
+            is DropEvent.Receiving -> received.add(0, Received(nextId++, event.name, total = event.total))
+            is DropEvent.Progress -> replaceLatest(event.name) { it.copy(bytes = event.bytes, total = event.total) }
             is DropEvent.Received -> replaceLatest(event.file.name) { it.copy(name = event.file.name, bytes = event.file.bytes, uri = event.file.uri) }
             is DropEvent.Failed -> replaceLatest(event.name) { it.copy(failed = event.reason) }
         }
@@ -358,18 +367,31 @@ private fun ReceivedList(items: List<Received>) {
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
             ) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.size(12.dp))
-                    Text(
-                        when {
-                            item.failed != null -> "Failed"
-                            item.uri == null -> "Receiving…"
-                            else -> Formatter.formatShortFileSize(context, item.bytes)
-                        },
-                        fontSize = 13.sp,
-                        color = if (item.failed != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.size(12.dp))
+                        Text(
+                            when {
+                                item.failed != null -> "Failed"
+                                item.uri != null -> Formatter.formatShortFileSize(context, item.bytes)
+                                item.total != null -> "${Formatter.formatShortFileSize(context, item.bytes)} / ${Formatter.formatShortFileSize(context, item.total)}"
+                                else -> "Receiving… ${Formatter.formatShortFileSize(context, item.bytes)}"
+                            },
+                            fontSize = 13.sp,
+                            color = if (item.failed != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // A bar while the file streams in; it disappears once the file is saved.
+                    if (item.uri == null && item.failed == null) {
+                        Spacer(Modifier.height(8.dp))
+                        val total = item.total
+                        if (total != null && total > 0) {
+                            LinearProgressIndicator(progress = { (item.bytes.toFloat() / total).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                    }
                 }
             }
         }

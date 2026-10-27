@@ -24,7 +24,8 @@ server on another.
   `http://192.168.1.20:8484/k7m2pq9xha/`, so someone who merely shares the
   Wi-Fi can't send you files. The path changes each time the app starts.
 - The page uploads one file at a time with `PUT …/upload?name=…` and shows a
-  progress bar for each.
+  progress bar for each. The phone's Received list shows the same progress
+  (bytes so far / size) while each file streams in.
 - Files are written through MediaStore, so no storage permission is needed.
   Duplicate names get " (1)" added.
 - The screen stays on while the app is open; uploads stop if you leave it.
