@@ -6,7 +6,7 @@ buzz on your wrist when Claude needs a decision).
 
 ```
  Wear OS watch ──HTTPS──▶ bridge (Node, on your computer) ──Agent SDK──▶ Claude Code sessions
-  Compose app             token-protected REST API              ~/.claude/projects/*.jsonl
+  Compose app             REST API, per-watch tokens            ~/.claude/projects/*.jsonl
 ```
 
 There is no public API for claude.ai chats or claude.ai/code cloud sessions,
@@ -29,9 +29,12 @@ Needs Node 20+ on the computer where you use Claude Code.
 cd wear-claude-remote/bridge
 npm install
 npm run build
-export BRIDGE_TOKEN=$(openssl rand -hex 24)   # keep this; the watch needs it
 npm start                                     # listens on 127.0.0.1:8787
 ```
+
+On start the bridge prints a **pairing code** like `Pairing code: 482 913`.
+The code works once, expires after 10 minutes, and locks after 5 wrong tries.
+Press Enter in the bridge terminal to get a new one.
 
 Optional settings (environment variables):
 
@@ -41,6 +44,13 @@ Optional settings (environment variables):
 | `BRIDGE_HOST` | `127.0.0.1` | Interface to bind; keep it local and use a tunnel (below) |
 | `BRIDGE_DEFAULT_CWD` | your home directory | Working directory for sessions started from the watch |
 | `BRIDGE_APPROVAL_TIMEOUT_MS` | `300000` | How long a tool call waits for Allow/Deny before it is denied |
+| `BRIDGE_STATE_DIR` | `~/.config/wear-claude-remote` | Where paired watches are stored |
+
+**How the token is protected.** No secret is built into the app.
+- **Pairing:** pairing gives each watch its own random 256-bit token.
+- **On the watch:** the token is encrypted with an Android Keystore key that never leaves the watch's hardware.
+- **On the bridge:** only a SHA-256 hash of each token is stored, in `devices.json` (permissions `0600`).
+- **Revoking:** `npm run revoke` unpairs every watch. A revoked watch goes back to its pairing screen automatically.
 
 **Authentication.** The bridge runs Claude Code through the Agent SDK, which
 documents API-key authentication: set `ANTHROPIC_API_KEY` before `npm start`.
@@ -58,21 +68,31 @@ tailscale funnel --bg 8787
 # -> https://<your-computer>.<your-tailnet>.ts.net
 ```
 
-Funnel makes the URL public, so every request must carry the bridge token, and
-the token is 192 random bits. If your watch can reach your tailnet privately,
+Funnel makes the URL public. Every request except pairing must carry a paired
+watch's token, and pairing needs the one-time code from your terminal. If your watch can reach your tailnet privately,
 use `tailscale serve --bg 8787` instead. A Cloudflare named tunnel works too.
 
-## 3. Build and install the watch app
+## 3. Install the watch app
 
-1. Open `wear-claude-remote/wear` in Android Studio.
-2. Copy `local.properties.example` to `local.properties` (it's git-ignored) and
-   set `bridge.url` and `bridge.token`.
-3. On the watch, turn on Developer options → ADB debugging and Wireless
-   debugging, then pair: `adb pair <ip>:<pair-port>` and `adb connect <ip>:<port>`.
-4. Run the `app` configuration on the watch.
+**Get the APK** in one of two ways:
+- **Download it.** GitHub Actions builds it on every change. Open the latest
+  **Wear Claude Remote** run in the repo's Actions tab and download the
+  `claude-remote-debug-apk` artifact. The APK holds no secrets.
+- **Build it yourself.** Open `wear-claude-remote/wear` in Android Studio, or
+  run `./gradlew :app:assembleDebug`. To pre-fill the bridge address, copy
+  `local.properties.example` to `local.properties` first.
 
-The token is compiled into the APK, which is fine for a personal sideloaded app.
-Don't publish the build.
+**Install it on the watch:**
+1. On the watch, turn on Developer options → ADB debugging and Wireless debugging.
+2. Connect from your computer: `adb pair <ip>:<pair-port>`, then `adb connect <ip>:<port>`.
+3. Run `adb install app-debug.apk`. If a build from another machine is already
+   installed, run `adb uninstall io.github.kennethcheong.clauderemote` first,
+   because debug builds are signed with per-machine keys.
+
+**Pair it:**
+1. Open **Claude Remote** on the watch.
+2. Set **Bridge address**. A bare host name like `my-pc.tailnet.ts.net` is enough.
+3. Tap **Enter pairing code** and type or say the code from the bridge terminal.
 
 ## Using it
 
@@ -80,6 +100,7 @@ Don't publish the build.
   The **New** button starts a session from voice, keyboard or handwriting.
 - **Thread**: the last 30 lines of the conversation. Tool calls appear as `⚙ Bash: npm test`.
   Use **Reply** to continue the session, or **Stop** to interrupt Claude mid-run.
+- **Unpair watch** (at the bottom of the list) forgets this watch's token.
 - **Approvals**: when Claude wants to use a tool that your Claude Code
   permission settings don't already allow, the watch buzzes and shows
   **Allow / Deny**. If nobody answers within 5 minutes, the request is denied.
@@ -89,11 +110,12 @@ otherwise, and only while the screen is visible.
 
 ## Bridge API
 
-All endpoints except `/health` need `Authorization: Bearer $BRIDGE_TOKEN`.
+All endpoints except `/health` and `/pair` need `Authorization: Bearer <device token>`.
 
 | Method & path | Body | Result |
 |---|---|---|
 | `GET /health` | | `{ ok: true }` |
+| `POST /pair` | `{ code, name }` | `{ token }` for a correct, unexpired pairing code |
 | `GET /sessions?limit=20` | | `[{ id, title, cwd, lastModified, status }]` |
 | `POST /sessions` | `{ text, cwd? }` | `202 { id }`, starts a new session |
 | `GET /sessions/:id?limit=30` | | `{ id, title, status, reply?, error?, pending?, messages: [{ role, text }] }` |
@@ -111,12 +133,10 @@ All endpoints except `/health` need `Authorization: Bearer $BRIDGE_TOKEN`.
 - Answers arrive only while the app is open. A push notification when a run
   finishes or needs approval (for example via ntfy or FCM) would be the next
   thing to add.
-- Entering the bridge URL and token on the watch itself (or pairing through a
-  phone app) would remove the need to rebuild when they change.
 
 ## Development
 
 ```sh
-cd bridge && npm test                      # transcript formatting tests
+cd bridge && npm test                      # transcript formatting and pairing tests
 cd wear && ./gradlew :app:testDebugUnitTest  # BridgeClient tests (MockWebServer)
 ```

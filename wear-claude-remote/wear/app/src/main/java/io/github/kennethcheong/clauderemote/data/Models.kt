@@ -57,4 +57,10 @@ internal data class TextBody(val text: String)
 internal data class ApprovalBody(val approvalId: String, val allow: Boolean)
 
 @Serializable
+internal data class PairBody(val code: String, val name: String)
+
+@Serializable
+internal data class PairResult(val token: String)
+
+@Serializable
 internal data class ErrorBody(val error: String)

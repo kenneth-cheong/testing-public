@@ -66,6 +66,29 @@ class BridgeClientTest {
     }
 
     @Test
+    fun pairSendsCodeWithoutAuthorization() = runTest {
+        server.enqueue(MockResponse().setBody("""{"token":"device-token"}"""))
+
+        val token = BridgeClient(server.url("/").toString()).pair("123 456", "Pixel Watch")
+
+        assertEquals("device-token", token)
+        val request = server.takeRequest()
+        assertEquals("/pair", request.path)
+        assertNull(request.getHeader("Authorization"))
+        assertEquals("""{"code":"123 456","name":"Pixel Watch"}""", request.body.readUtf8())
+    }
+
+    @Test
+    fun revokedTokenTriggersOnUnauthorized() = runTest {
+        var unauthorized = 0
+        val revoked = BridgeClient(server.url("/").toString(), "old-token", onUnauthorized = { unauthorized++ })
+        server.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"Unauthorized"}"""))
+
+        assertThrows(BridgeException::class.java) { kotlinx.coroutines.runBlocking { revoked.listSessions() } }
+        assertEquals(1, unauthorized)
+    }
+
+    @Test
     fun errorsCarryTheBridgeMessage() = runTest {
         server.enqueue(MockResponse().setResponseCode(409).setBody("""{"error":"Session is busy"}"""))
 

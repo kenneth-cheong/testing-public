@@ -1,11 +1,14 @@
 // Wear Claude Remote bridge.
 //
-// Runs next to Claude Code on your own computer and exposes a small,
-// token-protected HTTP API that the Wear OS app uses to list sessions,
-// read transcripts, send prompts and answer tool-permission requests.
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+// Runs next to Claude Code on your own computer and exposes a small HTTP API
+// that the Wear OS app uses to list sessions, read transcripts, send prompts
+// and answer tool-permission requests. Watches authenticate with per-device
+// tokens they get by pairing (see devices.ts).
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { homedir } from "node:os";
+import { join } from "node:path";
+import { createInterface } from "node:readline";
 import {
   getSessionInfo,
   getSessionMessages,
@@ -13,19 +16,31 @@ import {
   query,
   type PermissionResult,
 } from "@anthropic-ai/claude-agent-sdk";
+import { DeviceRegistry, PairingCode, PAIRING_CODE_TTL_MS } from "./devices.js";
 import { simplifyMessages, summarizeToolCall, type ChatLine } from "./transcript.js";
 
-const TOKEN = process.env.BRIDGE_TOKEN ?? "";
 const HOST = process.env.BRIDGE_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.BRIDGE_PORT ?? 8787);
 const DEFAULT_CWD = process.env.BRIDGE_DEFAULT_CWD ?? homedir();
 const APPROVAL_TIMEOUT_MS = Number(process.env.BRIDGE_APPROVAL_TIMEOUT_MS ?? 5 * 60_000);
 const MAX_BODY_BYTES = 64 * 1024;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const STATE_DIR = process.env.BRIDGE_STATE_DIR ?? join(homedir(), ".config", "wear-claude-remote");
 
-if (TOKEN.length < 16) {
-  console.error("Set BRIDGE_TOKEN to a random string of at least 16 characters.");
-  process.exit(1);
+const devices = new DeviceRegistry(join(STATE_DIR, "devices.json"));
+const pairing = new PairingCode();
+
+if (process.argv.includes("--revoke-all")) {
+  devices.revokeAll();
+  console.log("Unpaired all watches.");
+  process.exit(0);
+}
+
+function showPairingCode(): void {
+  const code = pairing.issue();
+  const minutes = PAIRING_CODE_TTL_MS / 60_000;
+  console.log(`\nPairing code: ${code.slice(0, 3)} ${code.slice(3)}  (one use, valid ${minutes} minutes)`);
+  if (process.stdin.isTTY) console.log("Press Enter for a new code.");
 }
 
 type RunStatus = "running" | "waiting_approval" | "done" | "error";
@@ -113,11 +128,9 @@ function send(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
-const tokenDigest = createHash("sha256").update(TOKEN).digest();
 function authorized(req: IncomingMessage): boolean {
   const header = req.headers.authorization ?? "";
-  const given = header.startsWith("Bearer ") ? header.slice(7) : "";
-  return timingSafeEqual(createHash("sha256").update(given).digest(), tokenDigest);
+  return devices.isAuthorized(header.startsWith("Bearer ") ? header.slice(7) : "");
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -165,6 +178,19 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const method = req.method ?? "GET";
 
   if (method === "GET" && url.pathname === "/health") return send(res, 200, { ok: true });
+
+  // POST /pair { code, name }  -> { token }  (the only unauthenticated write)
+  if (method === "POST" && url.pathname === "/pair") {
+    const body = await readJson(req);
+    if (!pairing.active) return send(res, 403, { error: "No active pairing code. Press Enter in the bridge terminal." });
+    if (typeof body.code !== "string" || !pairing.redeem(body.code)) return send(res, 403, { error: "Wrong pairing code" });
+    // The name is shown in this terminal, so drop control characters (e.g. escape sequences).
+    const name = (typeof body.name === "string" ? body.name : "").replace(/[\u0000-\u001f\u007f-\u009f]/g, "").slice(0, 80) || "watch";
+    const token = devices.add(name);
+    console.log(`Paired "${name}".`);
+    return send(res, 200, { token });
+  }
+
   if (!authorized(req)) return send(res, 401, { error: "Unauthorized" });
 
   // GET /sessions
@@ -241,4 +267,7 @@ createServer((req, res) => {
   });
 }).listen(PORT, HOST, () => {
   console.log(`Wear Claude Remote bridge listening on http://${HOST}:${PORT}`);
+  console.log(`${devices.count} watch(es) paired. Unpair all with: npm run revoke`);
+  showPairingCode();
+  if (process.stdin.isTTY) createInterface({ input: process.stdin }).on("line", showPairingCode);
 });

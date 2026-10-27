@@ -18,13 +18,21 @@ class BridgeException(val status: Int, message: String) : IOException(message)
 /**
  * Talks to the bridge running next to Claude Code on your computer.
  * Throws [IllegalArgumentException] if [baseUrl] is not an http(s) URL.
+ *
+ * [token] is this watch's device token from [pair]; leave it empty until paired.
+ * [onUnauthorized] runs when the bridge rejects the token, e.g. after it was revoked.
  */
 class BridgeClient(
     baseUrl: String,
-    private val token: String,
+    private val token: String = "",
+    private val onUnauthorized: () -> Unit = {},
     private val http: OkHttpClient = defaultHttpClient(),
 ) {
     private val base: HttpUrl = baseUrl.trimEnd('/').toHttpUrl()
+
+    /** Exchanges a one-time pairing code shown by the bridge for this watch's own token. */
+    suspend fun pair(code: String, deviceName: String): String =
+        post<PairResult>(url("pair"), json.encodeToString(PairBody(code, deviceName))).token
 
     suspend fun listSessions(limit: Int = 20): List<SessionSummary> =
         get(url("sessions") { addQueryParameter("limit", limit.toString()) })
@@ -61,9 +69,10 @@ class BridgeClient(
         execute(Request.Builder().url(url).post(body.toRequestBody(JSON_MEDIA_TYPE)))
 
     private suspend inline fun <reified T> execute(builder: Request.Builder): T = withContext(Dispatchers.IO) {
-        val request = builder.header("Authorization", "Bearer $token").build()
-        http.newCall(request).execute().use { response ->
+        if (token.isNotEmpty()) builder.header("Authorization", "Bearer $token")
+        http.newCall(builder.build()).execute().use { response ->
             val body = response.body?.string().orEmpty()
+            if (response.code == 401 && token.isNotEmpty()) onUnauthorized()
             if (!response.isSuccessful) {
                 val message = runCatching { json.decodeFromString<ErrorBody>(body).error }.getOrNull()
                 throw BridgeException(response.code, message ?: "HTTP ${response.code}")

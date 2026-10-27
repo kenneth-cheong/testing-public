@@ -1,0 +1,53 @@
+name: Wear Claude Remote
+
+on:
+  pull_request:
+    paths:
+      - "wear-claude-remote/**"
+      - ".github/workflows/wear-claude-remote.yml"
+  push:
+    branches: [main]
+    paths:
+      - "wear-claude-remote/**"
+      - ".github/workflows/wear-claude-remote.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wear-claude-remote/bridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: wear-claude-remote/bridge/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  watch-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wear-claude-remote/wear
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests and debug APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      # The APK holds no secrets: watches get their own token by pairing with the bridge.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-remote-debug-apk
+          path: wear-claude-remote/wear/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

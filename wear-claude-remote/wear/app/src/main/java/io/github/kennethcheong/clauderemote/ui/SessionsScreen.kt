@@ -18,6 +18,7 @@ import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.FilledTonalButton
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
@@ -27,7 +28,7 @@ import io.github.kennethcheong.clauderemote.data.SessionSummary
 import kotlinx.coroutines.launch
 
 @Composable
-fun SessionsScreen(viewModel: SessionsViewModel, onOpen: (String) -> Unit) {
+fun SessionsScreen(viewModel: SessionsViewModel, onOpen: (String) -> Unit, onUnpair: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel) {
@@ -60,6 +61,9 @@ fun SessionsScreen(viewModel: SessionsViewModel, onOpen: (String) -> Unit) {
                 sessions != null -> items(sessions, key = { it.id }) { session ->
                     SessionButton(session, onClick = { onOpen(session.id) })
                 }
+            }
+            item {
+                FilledTonalButton(onClick = onUnpair, modifier = Modifier.fillMaxWidth(), label = { Text("Unpair watch") })
             }
         }
     }

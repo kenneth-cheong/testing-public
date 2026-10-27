@@ -8,7 +8,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Bridge address and token come from local.properties so they never get committed.
+// Optional default bridge address from local.properties. No secrets are baked in:
+// the watch gets its own token by pairing with the bridge.
 val localProps = Properties().apply {
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
@@ -25,8 +26,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        buildConfigField("String", "BRIDGE_URL", buildConfigString(localProps.getProperty("bridge.url")))
-        buildConfigField("String", "BRIDGE_TOKEN", buildConfigString(localProps.getProperty("bridge.token")))
+        buildConfigField("String", "DEFAULT_BRIDGE_URL", buildConfigString(localProps.getProperty("bridge.url")))
     }
 
     buildTypes {

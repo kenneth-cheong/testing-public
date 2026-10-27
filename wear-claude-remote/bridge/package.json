@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsc && node --test dist/*.test.js"
+    "test": "tsc && node --test dist/*.test.js",
+    "revoke": "node dist/server.js --revoke-all"
   },
   "license": "MIT",
   "dependencies": {
