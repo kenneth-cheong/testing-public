@@ -56,6 +56,7 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.CancellationException
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +74,9 @@ private val DIM = Color(0xFF8A8F98)
 
 /** Silent frames (about 50 ms each) to keep showing the last note before clearing it. */
 private const val HOLD_FRAMES = 20
+
+/** Silent frames before the reading is shown greyed out as "last heard". */
+private const val LIVE_FRAMES = 4
 
 /** Saved A4 and transposition. */
 private class TunerSettings(context: Context) {
@@ -118,6 +122,7 @@ private fun TunerScreen(settings: TunerSettings) {
     LaunchedEffect(Unit) {
         val smoother = PitchSmoother()
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            error = null
             try {
                 @Suppress("MissingPermission") // TunerApp only shows this screen once RECORD_AUDIO is granted
                 microphonePitches().collect { detected ->
@@ -128,6 +133,9 @@ private fun TunerScreen(settings: TunerSettings) {
                         smoother.reset()
                     }
                 }
+            } catch (e: CancellationException) {
+                // The screen went off or the app was left: normal, not an error. (It extends IllegalStateException.)
+                throw e
             } catch (e: IllegalStateException) {
                 error = e.message
             }
@@ -143,7 +151,8 @@ private fun TunerScreen(settings: TunerSettings) {
     }
 
     val reading = hz?.takeIf { silentFrames < HOLD_FRAMES }?.let { Notes.read(it, a4, transposition) }
-    val live = silentFrames == 0
+    // A frame or two without a pitch (breath, a noisy room) shouldn't grey out the reading.
+    val live = silentFrames < LIVE_FRAMES
 
     Box(
         Modifier
