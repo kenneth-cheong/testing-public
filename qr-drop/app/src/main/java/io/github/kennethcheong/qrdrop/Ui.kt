@@ -365,7 +365,6 @@ private fun GlassCard(content: @Composable () -> Unit) {
     ) { content() }
 }
 
-@Composable
 /** [done], once set, ticks the step off: a check in place of its number and a green pill saying what happened. */
 @Composable
 private fun QrCard(step: Int?, title: String, payload: String, done: String? = null, footer: @Composable () -> Unit) {
