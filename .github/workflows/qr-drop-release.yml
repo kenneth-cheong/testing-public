@@ -1,0 +1,65 @@
+name: QR Drop release
+
+# Push a tag like qr-drop-v0.4.0 to build a release APK.
+# With the QRDROP_* secrets set, CI signs it and publishes a GitHub Release.
+# Without them, it uploads the unsigned APK as an artifact to sign locally.
+on:
+  push:
+    tags: ["qr-drop-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: qr-drop
+    env:
+      HAS_KEY: ${{ secrets.QRDROP_KEYSTORE_B64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore the signing key
+        if: env.HAS_KEY == 'true'
+        run: |
+          echo "${{ secrets.QRDROP_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/qrdrop-release.p12"
+          echo "QRDROP_KEYSTORE_FILE=$RUNNER_TEMP/qrdrop-release.p12" >> "$GITHUB_ENV"
+
+      - name: Unit tests and release APK
+        env:
+          QRDROP_KEYSTORE_PASSWORD: ${{ secrets.QRDROP_KEYSTORE_PASSWORD }}
+          QRDROP_KEY_ALIAS: ${{ secrets.QRDROP_KEY_ALIAS }}
+        run: ./gradlew --no-daemon :app:testReleaseUnitTest :app:assembleRelease
+
+      - name: Name the APK
+        run: |
+          VERSION="${GITHUB_REF_NAME#qr-drop-v}"
+          [ "$GITHUB_REF_TYPE" = tag ] || VERSION="dev-${GITHUB_SHA::7}"
+          mkdir -p out
+          SRC=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          if [ "$HAS_KEY" = true ]; then cp "$SRC" out/QR-Drop.apk; else cp "$SRC" out/QR-Drop-unsigned.apk; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-drop-release-apk
+          path: qr-drop/out/*.apk
+          if-no-files-found: error
+
+      - name: Publish the GitHub Release
+        if: env.HAS_KEY == 'true' && github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd out && sha256sum QR-Drop.apk > QR-Drop.apk.sha256)
+          gh release create "$GITHUB_REF_NAME" out/QR-Drop.apk out/QR-Drop.apk.sha256 \
+            --title "QR Drop $VERSION" --notes-file RELEASE_NOTES.md
