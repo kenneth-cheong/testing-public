@@ -120,7 +120,7 @@ class DropServerTest {
     @Test
     fun interfaceNamesMapToNetworkKinds() {
         assertEquals(LocalAddress.Kind.WIFI, LocalAddresses.kindOf("wlan0"))
-        for (hotspot in listOf("ap0", "swlan0", "wlan1", "wlan2", "softap0", "p2p-wlan0-0", "p2p-p2p0-1")) assertEquals(hotspot, LocalAddress.Kind.HOTSPOT, LocalAddresses.kindOf(hotspot))
+        for (hotspot in listOf("ap0", "swlan0", "wlan1", "wlan2", "softap0", "p2p0", "p2p-wlan0-0", "p2p-p2p0-1")) assertEquals(hotspot, LocalAddress.Kind.HOTSPOT, LocalAddresses.kindOf(hotspot))
         for (other in listOf("rmnet_data0", "ccmni1", "tun0", "lo", "dummy0")) assertNull(other, LocalAddresses.kindOf(other))
     }
 

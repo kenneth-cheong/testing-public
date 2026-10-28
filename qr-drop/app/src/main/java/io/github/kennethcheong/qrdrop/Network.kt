@@ -18,10 +18,10 @@ data class LocalAddress(val iface: String, val ip: String, val kind: Kind) {
 }
 
 object LocalAddresses {
-    /** Interface names: Wi-Fi client is wlan0; hotspots show up as ap0, swlan0, wlan1… and Wi-Fi Direct groups as p2p-wlan0-0. */
+    /** Interface names: Wi-Fi client is wlan0; hotspots show up as ap0, swlan0, wlan1… and Wi-Fi Direct groups as p2p0 or p2p-wlan0-0. */
     fun kindOf(iface: String): LocalAddress.Kind? = when {
         iface == "wlan0" -> LocalAddress.Kind.WIFI
-        Regex("^(ap|swlan|softap)\\d*$").matches(iface) || Regex("^wlan[1-9]\\d*$").matches(iface) || iface.startsWith("p2p-") -> LocalAddress.Kind.HOTSPOT
+        Regex("^(ap|swlan|softap)\\d*$").matches(iface) || Regex("^wlan[1-9]\\d*$").matches(iface) || iface.startsWith("p2p") -> LocalAddress.Kind.HOTSPOT
         else -> null // mobile data (rmnet, ccmni), VPNs (tun): an iPhone can't reach these
     }
 
