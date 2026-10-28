@@ -64,6 +64,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -190,20 +191,20 @@ private fun Header(deviceName: String, mode: Mode, ready: Boolean) {
 /** The app icon in-app: a down arrow into a tray on an indigo gradient tile. */
 @Composable
 private fun LogoTile(size: Dp) {
-    Box(
-        Modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(Brush.linearGradient(listOf(Accent, AccentDeep))),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.size(size * 0.55f)) {
-            val w = this.size.width
-            val stroke = Stroke(width = w * 0.11f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-            val c = Color.White
-            drawLine(c, Offset(w / 2, w * 0.05f), Offset(w / 2, w * 0.6f), strokeWidth = stroke.width, cap = StrokeCap.Round)
-            drawLine(c, Offset(w * 0.25f, w * 0.38f), Offset(w / 2, w * 0.62f), strokeWidth = stroke.width, cap = StrokeCap.Round)
-            drawLine(c, Offset(w * 0.75f, w * 0.38f), Offset(w / 2, w * 0.62f), strokeWidth = stroke.width, cap = StrokeCap.Round)
-            drawLine(c, Offset(w * 0.12f, w * 0.78f), Offset(w * 0.12f, w * 0.95f), strokeWidth = stroke.width, cap = StrokeCap.Round)
-            drawLine(c, Offset(w * 0.12f, w * 0.95f), Offset(w * 0.88f, w * 0.95f), strokeWidth = stroke.width, cap = StrokeCap.Round)
-            drawLine(c, Offset(w * 0.88f, w * 0.95f), Offset(w * 0.88f, w * 0.78f), strokeWidth = stroke.width, cap = StrokeCap.Round)
+    // The launcher icon, "Wi-Fi Drop": Wi-Fi arcs with a down arrow for the dot, on mint. Drawn on its 108-unit grid.
+    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.24f)).background(Brush.linearGradient(listOf(Color(0xFF7DF0D6), Color(0xFF2FB89F))))) {
+        Canvas(Modifier.size(size)) {
+            val u = this.size.width / 108f
+            val ink = Color(0xFF0B0D1F)
+            val stroke = Stroke(width = 7f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+            for (r in listOf(29f, 16f)) {
+                drawArc(ink, startAngle = 225f, sweepAngle = 90f, useCenter = false, topLeft = Offset((54f - r) * u, (62f - r) * u), size = Size(2 * r * u, 2 * r * u), style = stroke)
+            }
+            val arrow = Path().apply {
+                moveTo(54f * u, 58f * u); lineTo(54f * u, 78f * u)
+                moveTo(46f * u, 70f * u); lineTo(54f * u, 78f * u); lineTo(62f * u, 70f * u)
+            }
+            drawPath(arrow, ink, style = stroke)
         }
     }
 }

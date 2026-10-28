@@ -14,8 +14,8 @@ android {
         applicationId = "io.github.kennethcheong.qrdrop"
         minSdk = 30
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.5.1"
+        versionCode = 9
+        versionName = "0.5.2"
     }
 
     // Release signing comes from the environment (CI secrets) when it's there;
