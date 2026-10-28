@@ -68,6 +68,7 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
     val port: Int = server.start()
 
     init {
+        direct.clearLeftover()
         // Wi-Fi and hotspot addresses come and go; keep the QR codes current.
         viewModelScope.launch {
             while (true) {

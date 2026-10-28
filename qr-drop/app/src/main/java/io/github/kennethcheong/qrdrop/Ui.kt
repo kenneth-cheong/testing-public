@@ -99,7 +99,9 @@ fun DropApp(vm: DropViewModel = viewModel()) {
     val addresses by vm.addresses.collectAsStateWithLifecycle()
     val hotspotState by vm.hotspotState.collectAsStateWithLifecycle()
     val wifi = addresses.firstOrNull { it.kind == LocalAddress.Kind.WIFI }
-    val hotspotAddress = addresses.firstOrNull { it.kind == LocalAddress.Kind.HOTSPOT }
+    // Our Wi-Fi Direct group is reached on its p2p address; any other hotspot (the local-only one, or your own) on its AP address.
+    val hotspotKind = if ((hotspotState as? HotspotState.On)?.info?.viaDirect == true) LocalAddress.Kind.DIRECT else LocalAddress.Kind.HOTSPOT
+    val hotspotAddress = addresses.firstOrNull { it.kind == hotspotKind }
     // Until you pick a tab, follow the network: Same Wi-Fi when there is one.
     var picked by remember { mutableStateOf<Mode?>(null) }
     val mode = picked ?: if (wifi != null) Mode.WIFI else Mode.HOTSPOT

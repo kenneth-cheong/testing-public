@@ -14,14 +14,16 @@ import java.security.SecureRandom
 
 /** An address this phone can be reached on, and what kind of network it is. */
 data class LocalAddress(val iface: String, val ip: String, val kind: Kind) {
-    enum class Kind { WIFI, HOTSPOT }
+    /** DIRECT is a Wi-Fi Direct group: QR Drop's own fast hotspot, or another app's (casting, say). */
+    enum class Kind { WIFI, HOTSPOT, DIRECT }
 }
 
 object LocalAddresses {
-    /** Interface names: Wi-Fi client is wlan0; hotspots show up as ap0, swlan0, wlan1… and Wi-Fi Direct groups as p2p0 or p2p-wlan0-0. */
+    /** Interface names: Wi-Fi client is wlan0; hotspots show up as ap0, swlan0, wlan1…; Wi-Fi Direct groups as p2p0 or p2p-wlan0-0. */
     fun kindOf(iface: String): LocalAddress.Kind? = when {
         iface == "wlan0" -> LocalAddress.Kind.WIFI
-        Regex("^(ap|swlan|softap)\\d*$").matches(iface) || Regex("^wlan[1-9]\\d*$").matches(iface) || iface.startsWith("p2p") -> LocalAddress.Kind.HOTSPOT
+        Regex("^(ap|swlan|softap)\\d*$").matches(iface) || Regex("^wlan[1-9]\\d*$").matches(iface) -> LocalAddress.Kind.HOTSPOT
+        iface.startsWith("p2p") -> LocalAddress.Kind.DIRECT
         else -> null // mobile data (rmnet, ccmni), VPNs (tun): an iPhone can't reach these
     }
 
@@ -38,7 +40,7 @@ object LocalAddresses {
 }
 
 /** The Wi-Fi network an iPhone joins when there's no shared Wi-Fi. [frequencyMhz] is null when Android doesn't say. */
-data class HotspotInfo(val ssid: String, val passphrase: String, val frequencyMhz: Int? = null) {
+data class HotspotInfo(val ssid: String, val passphrase: String, val frequencyMhz: Int? = null, val viaDirect: Boolean = false) {
     val fast: Boolean get() = (frequencyMhz ?: 0) >= 4900
 
     /** Standard Wi-Fi QR payload; the iPhone camera offers to join it. */
@@ -141,11 +143,33 @@ class DirectHotspot(context: Context) {
             when {
                 channel !== ch -> Unit
                 group != null && group.isGroupOwner && !group.passphrase.isNullOrEmpty() ->
-                    whenStarted(HotspotInfo(group.networkName, group.passphrase, group.frequency.takeIf { it > 0 }))
+                    whenStarted(HotspotInfo(group.networkName, group.passphrase, group.frequency.takeIf { it > 0 }, viaDirect = true))
                 triesLeft > 0 -> main.postDelayed({ awaitGroup(p2p, ch, whenStarted, whenFailed, triesLeft - 1) }, 250)
                 else -> whenFailed("The Wi-Fi Direct network didn't come up.")
             }
         }
+    }
+
+    /**
+     * A group outlives the app if it's killed mid-hotspot (an update, say), with a
+     * password nobody can see any more. Clear ours, by name, when the app starts.
+     */
+    @SuppressLint("MissingPermission")
+    fun clearLeftover() {
+        val p2p = manager ?: return
+        val ch = p2p.initialize(app, Looper.getMainLooper(), null) ?: return
+        runCatching {
+            p2p.requestGroupInfo(ch) { group ->
+                if (group?.networkName?.endsWith(NAME_SUFFIX) == true && channel == null) {
+                    p2p.removeGroup(ch, object : WifiP2pManager.ActionListener {
+                        override fun onSuccess() = ch.close()
+                        override fun onFailure(reason: Int) = ch.close()
+                    })
+                } else {
+                    ch.close()
+                }
+            }
+        }.onFailure { ch.close() } // no NEARBY_WIFI_DEVICES yet, so we can't have made one
     }
 
     fun stop() {
@@ -162,7 +186,8 @@ class DirectHotspot(context: Context) {
         private val random = SecureRandom()
 
         /** Android requires Wi-Fi Direct names to start with "DIRECT-" and two letters or digits. */
-        fun newNetworkName(): String = "DIRECT-" + pick(ALPHANUMERIC, 2) + "-QR Drop"
+        fun newNetworkName(): String = "DIRECT-" + pick(ALPHANUMERIC, 2) + NAME_SUFFIX
+        private const val NAME_SUFFIX = "-QR Drop"
 
         /** Lower case and digits only, so it's easy to type if the QR code won't scan. */
         fun newPassphrase(): String = pick("abcdefghjkmnpqrstuvwxyz23456789", 12)
