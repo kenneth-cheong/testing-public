@@ -287,6 +287,17 @@ private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress:
                         CredentialChip("Network", state.info.ssid, Modifier.weight(1f))
                         CredentialChip("Password", state.info.passphrase, Modifier.weight(1f))
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        when {
+                            state.info.fast -> "5 GHz · fast"
+                            state.note != null -> state.note
+                            else -> "2.4 GHz · this phone can't make a 5 GHz network right now"
+                        },
+                        fontSize = 13.sp,
+                        color = Muted,
+                        textAlign = TextAlign.Center,
+                    )
                 },
             )
             Spacer(Modifier.height(14.dp))

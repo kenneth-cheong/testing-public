@@ -13,6 +13,12 @@ opens a page in Safari, and sends. Files land in **Downloads › QR Drop**.
   code 2 opens the send page. It uses no mobile data. If your regular hotspot
   is already on, the app uses that instead.
 
+  The private network is a Wi-Fi Direct group on 5 GHz, which the iPhone joins
+  like any other Wi-Fi. Android's own app hotspot ("local-only hotspot") is
+  stuck on 2.4 GHz at 20 MHz, several times slower, so it's only the fallback:
+  when Wi-Fi is switched off (Wi-Fi Direct needs it on, not joined to anything)
+  or the phone can't make a Wi-Fi Direct group.
+
 Mobile data on its own can't work: carriers don't let one phone reach a
 server on another.
 
@@ -23,7 +29,7 @@ server on another.
 - Everything lives under a random path in the QR code, e.g.
   `http://192.168.1.20:8484/k7m2pq9xha/`, so someone who merely shares the
   Wi-Fi can't send you files. The path changes each time the app starts.
-- The page uploads one file at a time with `PUT …/upload?name=…` and shows a
+- The page uploads up to three files at once with `PUT …/upload?name=…` and shows a
   progress bar for each. The phone's Received list shows the same progress
   (bytes so far / size) while each file streams in.
 - Files are written through MediaStore, so no storage permission is needed.

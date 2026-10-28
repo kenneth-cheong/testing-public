@@ -1,6 +1,6 @@
 package io.github.kennethcheong.qrdrop
 
-/** The page the iPhone opens from the QR code. Uploads go one at a time with a progress bar each. */
+/** The page the iPhone opens from the QR code. Up to three files upload at once, each with its own progress bar. */
 fun sendPage(deviceName: String): String {
     val name = deviceName.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
     return """<!doctype html>
@@ -53,7 +53,9 @@ fun sendPage(deviceName: String): String {
 const list = document.getElementById('list');
 const summary = document.getElementById('summary');
 const queue = [];
-let busy = false, sent = 0, failed = 0;
+// A few at a time keeps the link busy between files (and through small photos) without starving any one file.
+const PARALLEL = 3;
+let active = 0, sent = 0, failed = 0;
 
 function fmt(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -75,14 +77,12 @@ document.getElementById('files').addEventListener('change', e => {
 });
 
 function next() {
-  if (busy) return;
-  const job = queue.shift();
-  if (!job) {
-    summary.textContent = sent ? (sent + ' sent' + (failed ? ', ' + failed + ' failed' : '') + '. Choose more any time.') : '';
-    return;
-  }
-  busy = true;
-  const { file, li } = job;
+  while (active < PARALLEL && queue.length) start(queue.shift());
+  if (!active) summary.textContent = sent ? (sent + ' sent' + (failed ? ', ' + failed + ' failed' : '') + '. Choose more any time.') : '';
+}
+
+function start({ file, li }) {
+  active++;
   const state = li.querySelector('.state'), bar = li.querySelector('.bar > i');
   const xhr = new XMLHttpRequest();
   xhr.open('PUT', 'upload?name=' + encodeURIComponent(file.name));
@@ -97,7 +97,7 @@ function next() {
     state.className = 'state ' + (ok ? 'ok' : 'err');
     state.textContent = ok ? 'Sent ✓' : 'Failed';
     if (ok) { bar.style.width = '100%'; sent++; } else failed++;
-    busy = false; next();
+    active--; next();
   };
   xhr.onload = () => finish(xhr.status >= 200 && xhr.status < 300);
   xhr.onerror = () => finish(false);

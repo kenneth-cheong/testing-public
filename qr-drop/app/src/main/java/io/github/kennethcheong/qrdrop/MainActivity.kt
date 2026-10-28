@@ -3,6 +3,7 @@ package io.github.kennethcheong.qrdrop
 import android.app.Application
 import android.os.Build
 import android.os.Bundle
+import android.net.wifi.WifiManager
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -43,7 +44,8 @@ data class Received(
 sealed interface HotspotState {
     data object Off : HotspotState
     data object Starting : HotspotState
-    data class On(val info: HotspotInfo) : HotspotState
+    /** [note] explains a slow fallback, if that's what's running. */
+    data class On(val info: HotspotInfo, val note: String? = null) : HotspotState
     data class Failed(val reason: String) : HotspotState
 }
 
@@ -51,7 +53,8 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
     val deviceName: String = Settings.Global.getString(app.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
     private val token = DropServer.newToken()
     val received = mutableStateListOf<Received>()
-    private var nextId = 0L
+    private val wifi = app.getSystemService(WifiManager::class.java)
+    private val direct = DirectHotspot(app)
     private val hotspot = PrivateHotspot(app)
 
     private val _addresses = MutableStateFlow(LocalAddresses.current())
@@ -76,36 +79,47 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
 
     fun linkFor(ip: String) = "http://$ip:$port/$token/"
 
+    /** Wi-Fi Direct on 5 GHz first; if that can't start, the slower local-only hotspot. */
     fun startHotspot() {
         _hotspotState.value = HotspotState.Starting
-        hotspot.start(
+        if (!wifi.isWifiEnabled) return startPrivateHotspot("Turn on Wi-Fi (no need to join a network) for a faster 5 GHz hotspot.")
+        direct.start(
             whenStarted = { _hotspotState.value = HotspotState.On(it) },
+            whenFailed = { direct.stop(); startPrivateHotspot(null) },
+        )
+    }
+
+    private fun startPrivateHotspot(note: String?) {
+        hotspot.start(
+            whenStarted = { _hotspotState.value = HotspotState.On(it, note) },
             whenFailed = { _hotspotState.value = HotspotState.Failed(it) },
         )
     }
 
     fun stopHotspot() {
+        direct.stop()
         hotspot.stop()
         _hotspotState.value = HotspotState.Off
     }
 
     private fun onEvent(event: DropEvent) {
         when (event) {
-            is DropEvent.Receiving -> received.add(0, Received(nextId++, event.name, total = event.total))
-            is DropEvent.Progress -> replaceLatest(event.name) { it.copy(bytes = event.bytes, total = event.total) }
-            is DropEvent.Received -> replaceLatest(event.file.name) { it.copy(name = event.file.name, bytes = event.file.bytes, uri = event.file.uri) }
-            is DropEvent.Failed -> replaceLatest(event.name) { it.copy(failed = event.reason) }
+            is DropEvent.Receiving -> received.add(0, Received(event.upload, event.name, total = event.total))
+            is DropEvent.Progress -> update(event.upload, event.name) { it.copy(bytes = event.bytes, total = event.total) }
+            is DropEvent.Received -> update(event.upload, event.file.name) { it.copy(name = event.file.name, bytes = event.file.bytes, uri = event.file.uri) }
+            is DropEvent.Failed -> update(event.upload, event.name) { it.copy(failed = event.reason) }
         }
     }
 
-    /** Uploads arrive one at a time, so the newest unfinished row is the one this event is about. */
-    private fun replaceLatest(name: String, update: (Received) -> Received) {
-        val index = received.indexOfFirst { it.uri == null && it.failed == null }
-        if (index >= 0) received[index] = update(received[index]) else received.add(0, update(Received(nextId++, name)))
+    /** Several files stream in at once; each row is keyed by the server's upload id. */
+    private fun update(upload: Long, name: String, change: (Received) -> Received) {
+        val index = received.indexOfFirst { it.id == upload }
+        if (index >= 0) received[index] = change(received[index]) else received.add(0, change(Received(upload, name)))
     }
 
     override fun onCleared() {
         server.stop()
+        direct.stop()
         hotspot.stop()
     }
 }

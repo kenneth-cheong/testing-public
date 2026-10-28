@@ -49,7 +49,7 @@ class DropServerTest {
         assertEquals(body, String(sink.files.getValue("My Photo +1.jpg")))
         assertEquals("image/jpeg", sink.types["My Photo +1.jpg"])
         assertEquals(
-            listOf<DropEvent>(DropEvent.Receiving("My Photo +1.jpg", 11), DropEvent.Received(SavedFile("My Photo +1.jpg", 11, "memory://My Photo +1.jpg"))),
+            listOf<DropEvent>(DropEvent.Receiving(1, "My Photo +1.jpg", 11), DropEvent.Received(1, SavedFile("My Photo +1.jpg", 11, "memory://My Photo +1.jpg"))),
             events.filterNot { it is DropEvent.Progress },
         )
     }
@@ -64,7 +64,7 @@ class DropServerTest {
 
         assertTrue(progress.isNotEmpty())
         assertEquals(progress.map { it.bytes }.sorted(), progress.map { it.bytes })
-        assertEquals(DropEvent.Progress("p.bin", 200_000, 200_000), progress.last())
+        assertEquals(DropEvent.Progress(1, "p.bin", 200_000, 200_000), progress.last())
     }
 
     @Test
@@ -120,8 +120,32 @@ class DropServerTest {
     @Test
     fun interfaceNamesMapToNetworkKinds() {
         assertEquals(LocalAddress.Kind.WIFI, LocalAddresses.kindOf("wlan0"))
-        for (hotspot in listOf("ap0", "swlan0", "wlan1", "wlan2", "softap0")) assertEquals(hotspot, LocalAddress.Kind.HOTSPOT, LocalAddresses.kindOf(hotspot))
-        for (other in listOf("rmnet_data0", "ccmni1", "tun0", "p2p0", "lo", "dummy0")) assertNull(other, LocalAddresses.kindOf(other))
+        for (hotspot in listOf("ap0", "swlan0", "wlan1", "wlan2", "softap0", "p2p-wlan0-0", "p2p-p2p0-1")) assertEquals(hotspot, LocalAddress.Kind.HOTSPOT, LocalAddresses.kindOf(hotspot))
+        for (other in listOf("rmnet_data0", "ccmni1", "tun0", "lo", "dummy0")) assertNull(other, LocalAddresses.kindOf(other))
+    }
+
+    @Test
+    fun eachUploadGetsItsOwnId() {
+        call("PUT /tok123/upload?name=a.txt HTTP/1.1\r\nContent-Length: 1\r\n\r\na")
+        call("PUT /tok123/upload?name=a.txt HTTP/1.1\r\nContent-Length: 1\r\n\r\nb")
+        assertEquals(listOf(1L, 2L), events.filterIsInstance<DropEvent.Received>().map { it.upload })
+    }
+
+    @Test
+    fun wifiDirectNamesAndPasswordsFitTheRules() {
+        repeat(20) {
+            val name = DirectHotspot.newNetworkName()
+            assertTrue(name, Regex("^DIRECT-[A-Za-z0-9]{2}-QR Drop$").matches(name))
+            val password = DirectHotspot.newPassphrase()
+            assertTrue(password, password.length in 8..63)
+        }
+    }
+
+    @Test
+    fun onlyFiveGigahertzCountsAsFast() {
+        assertTrue(HotspotInfo("x", "y", frequencyMhz = 5745).fast)
+        assertTrue(!HotspotInfo("x", "y", frequencyMhz = 2412).fast)
+        assertTrue(!HotspotInfo("x", "y").fast)
     }
 
     @Test
