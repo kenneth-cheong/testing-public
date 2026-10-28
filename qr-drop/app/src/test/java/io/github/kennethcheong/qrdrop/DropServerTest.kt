@@ -126,6 +126,17 @@ class DropServerTest {
     }
 
     @Test
+    fun openingAndPingingThePageAreReported() {
+        server.handle(ByteArrayInputStream("GET /tok123/ HTTP/1.1\r\n\r\n".toByteArray()), ByteArrayOutputStream(), from = "192.168.49.23")
+        val ping = ByteArrayOutputStream()
+        server.handle(ByteArrayInputStream("GET /tok123/ping HTTP/1.1\r\n\r\n".toByteArray()), ping, from = "192.168.49.23")
+
+        assertTrue(ping.toString(), ping.toString().startsWith("HTTP/1.1 204"))
+        assertEquals(List(2) { DropEvent.PageSeen("192.168.49.23") }, events)
+        assertTrue("no ping without the token", call("GET /nope/ping HTTP/1.1\r\n\r\n").startsWith("HTTP/1.1 403"))
+    }
+
+    @Test
     fun eachUploadGetsItsOwnId() {
         call("PUT /tok123/upload?name=a.txt HTTP/1.1\r\nContent-Length: 1\r\n\r\na")
         call("PUT /tok123/upload?name=a.txt HTTP/1.1\r\nContent-Length: 1\r\n\r\nb")

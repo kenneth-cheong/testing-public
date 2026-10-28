@@ -3,6 +3,7 @@ package io.github.kennethcheong.qrdrop
 import android.app.Application
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.net.wifi.WifiManager
 import android.provider.Settings
 import android.view.WindowManager
@@ -62,6 +63,15 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
     private val _hotspotState = MutableStateFlow<HotspotState>(HotspotState.Off)
     val hotspotState: StateFlow<HotspotState> = _hotspotState.asStateFlow()
 
+    /** Devices on QR Drop's Wi-Fi Direct hotspot, as far as Android reports them. */
+    private val _joined = MutableStateFlow(0)
+    val joined: StateFlow<Int> = _joined.asStateFlow()
+
+    /** True while a send page is open somewhere: it pings every few seconds. */
+    private val _pageOpen = MutableStateFlow(false)
+    val pageOpen: StateFlow<Boolean> = _pageOpen.asStateFlow()
+    private var pageSeenAt = 0L
+
     private val server = DropServer(token, DownloadsSink(app), page = { sendPage(deviceName) }) { event ->
         viewModelScope.launch(Dispatchers.Main) { onEvent(event) }
     }
@@ -73,6 +83,8 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             while (true) {
                 _addresses.value = LocalAddresses.current()
+                _pageOpen.value = SystemClock.elapsedRealtime() - pageSeenAt < PAGE_GONE_AFTER_MS
+                if ((_hotspotState.value as? HotspotState.On)?.info?.viaDirect == true) direct.countClients { _joined.value = it } else _joined.value = 0
                 delay(2_000)
             }
         }
@@ -105,6 +117,10 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun onEvent(event: DropEvent) {
         when (event) {
+            is DropEvent.PageSeen -> {
+                pageSeenAt = SystemClock.elapsedRealtime()
+                _pageOpen.value = true
+            }
             is DropEvent.Receiving -> received.add(0, Received(event.upload, event.name, total = event.total))
             is DropEvent.Progress -> update(event.upload, event.name) { it.copy(bytes = event.bytes, total = event.total) }
             is DropEvent.Received -> update(event.upload, event.file.name) { it.copy(name = event.file.name, bytes = event.file.bytes, uri = event.file.uri) }
@@ -116,6 +132,11 @@ class DropViewModel(app: Application) : AndroidViewModel(app) {
     private fun update(upload: Long, name: String, change: (Received) -> Received) {
         val index = received.indexOfFirst { it.id == upload }
         if (index >= 0) received[index] = change(received[index]) else received.add(0, change(Received(upload, name)))
+    }
+
+    private companion object {
+        /** The page pings every 4 s; three missed pings and it's gone (closed, or the iPhone left the network). */
+        const val PAGE_GONE_AFTER_MS = 12_000L
     }
 
     override fun onCleared() {

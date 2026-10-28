@@ -32,6 +32,10 @@ server on another.
 - The page uploads up to three files at once with `PUT …/upload?name=…` and shows a
   progress bar for each. The phone's Received list shows the same progress
   (bytes so far / size) while each file streams in.
+- While it's open, the page pings `GET …/ping` every 4 s. The iPhone shows
+  "Connected to <phone>" (or that it can't reach it), and the phone ticks off
+  "Send page open on the iPhone". When a batch finishes, the page shows a saved
+  card, or which files failed with a Retry button.
 - Files are written through MediaStore, so no storage permission is needed.
   Duplicate names get " (1)" added.
 - The screen stays on while the app is open; uploads stop if you leave it.

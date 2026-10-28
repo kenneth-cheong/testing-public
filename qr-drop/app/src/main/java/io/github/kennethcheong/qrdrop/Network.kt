@@ -150,6 +150,14 @@ class DirectHotspot(context: Context) {
         }
     }
 
+    /** How many devices have joined. Phones joining as plain Wi-Fi (an iPhone) may not be counted on every Android build. */
+    @SuppressLint("MissingPermission")
+    fun countClients(result: (Int) -> Unit) {
+        val p2p = manager ?: return
+        val ch = channel ?: return
+        runCatching { p2p.requestGroupInfo(ch) { group -> if (channel === ch) result(group?.clientList?.size ?: 0) } }
+    }
+
     /**
      * A group outlives the app if it's killed mid-hotspot (an update, say), with a
      * password nobody can see any more. Clear ours, by name, when the app starts.

@@ -19,15 +19,20 @@ fun interface FileSink {
 
 data class SavedFile(val name: String, val bytes: Long, val uri: String)
 
-/** Several files can stream in at once; [upload] says which one an event is about. */
 sealed interface DropEvent {
-    val upload: Long
+    /** The send page was opened, or is still open: it pings every few seconds. [from] is the browser's address. */
+    data class PageSeen(val from: String?) : DropEvent
+
+    /** Several files can stream in at once; [upload] says which one an event is about. */
+    sealed interface Upload : DropEvent {
+        val upload: Long
+    }
 
     /** [total] is the file size from the request, or null if the browser didn't say. */
-    data class Receiving(override val upload: Long, val name: String, val total: Long? = null) : DropEvent
-    data class Progress(override val upload: Long, val name: String, val bytes: Long, val total: Long?) : DropEvent
-    data class Received(override val upload: Long, val file: SavedFile) : DropEvent
-    data class Failed(override val upload: Long, val name: String, val reason: String) : DropEvent
+    data class Receiving(override val upload: Long, val name: String, val total: Long? = null) : Upload
+    data class Progress(override val upload: Long, val name: String, val bytes: Long, val total: Long?) : Upload
+    data class Received(override val upload: Long, val file: SavedFile) : Upload
+    data class Failed(override val upload: Long, val name: String, val reason: String) : Upload
 }
 
 /** Counts bytes as they're read and reports the running total at most every [intervalMs]. */
@@ -58,6 +63,7 @@ private class CountingInputStream(
  * in the QR code, so someone who merely joins the same Wi-Fi can't send files.
  *
  * - `GET /<token>/` is the Safari send page.
+ * - `GET /<token>/ping` is the page saying it's still open (and checking the phone still is).
  * - `PUT /<token>/upload?name=<file name>` with the file as the body saves it.
  */
 class DropServer(
@@ -110,14 +116,14 @@ class DropServer(
 
     private fun serve(client: Socket) = client.use {
         it.soTimeout = 60_000
-        handle(it.getInputStream().buffered(), it.getOutputStream().buffered())
+        handle(it.getInputStream().buffered(), it.getOutputStream().buffered(), it.inetAddress?.hostAddress)
     }
 
-    /** One request/response; public so tests can drive it without sockets. */
-    fun handle(input: InputStream, output: OutputStream) {
+    /** One request/response; public so tests can drive it without sockets. [from] is the browser's address. */
+    fun handle(input: InputStream, output: OutputStream, from: String? = null) {
         try {
             val request = Http.read(input)
-            route(request, output)
+            route(request, output, from)
         } catch (e: HttpException) {
             runCatching { Http.respond(output, e.status, "text/plain; charset=utf-8", (e.message ?: "Error").toByteArray()) }
         } catch (e: IOException) {
@@ -125,13 +131,19 @@ class DropServer(
         }
     }
 
-    private fun route(request: HttpRequest, output: OutputStream) {
+    private fun route(request: HttpRequest, output: OutputStream, from: String?) {
         val base = "/$token"
         when {
             request.path == base -> Http.respond(output, 302, "text/plain", ByteArray(0), mapOf("Location" to "$base/"))
             !request.path.startsWith("$base/") -> Http.respond(output, 403, "text/plain; charset=utf-8", "Scan the QR code on the phone to send files.".toByteArray())
-            request.path == "$base/" && request.method == "GET" ->
+            request.path == "$base/" && request.method == "GET" -> {
+                onEvent(DropEvent.PageSeen(from))
                 Http.respond(output, 200, "text/html; charset=utf-8", page().toByteArray())
+            }
+            request.path == "$base/ping" && request.method == "GET" -> {
+                onEvent(DropEvent.PageSeen(from))
+                Http.respond(output, 204, "text/plain", ByteArray(0))
+            }
             request.path == "$base/upload" && (request.method == "PUT" || request.method == "POST") -> upload(request, output)
             else -> Http.respond(output, 404, "text/plain; charset=utf-8", "Not found".toByteArray())
         }

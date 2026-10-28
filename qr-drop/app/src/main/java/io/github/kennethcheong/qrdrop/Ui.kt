@@ -10,6 +10,7 @@ import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -92,12 +93,16 @@ private val AccentDeep = Color(0xFF4F5BEA)
 private val Mint = Color(0xFF5EE6C8)
 private val Coral = Color(0xFFFF7A7A)
 
+private const val PAGE_OPEN = "Send page open on the iPhone"
+
 private enum class Mode(val label: String) { WIFI("Same Wi-Fi"), HOTSPOT("Hotspot") }
 
 @Composable
 fun DropApp(vm: DropViewModel = viewModel()) {
     val addresses by vm.addresses.collectAsStateWithLifecycle()
     val hotspotState by vm.hotspotState.collectAsStateWithLifecycle()
+    val joined by vm.joined.collectAsStateWithLifecycle()
+    val pageOpen by vm.pageOpen.collectAsStateWithLifecycle()
     val wifi = addresses.firstOrNull { it.kind == LocalAddress.Kind.WIFI }
     // Our Wi-Fi Direct group is reached on its p2p address; any other hotspot (the local-only one, or your own) on its AP address.
     val hotspotKind = if ((hotspotState as? HotspotState.On)?.info?.viaDirect == true) LocalAddress.Kind.DIRECT else LocalAddress.Kind.HOTSPOT
@@ -142,8 +147,8 @@ fun DropApp(vm: DropViewModel = viewModel()) {
                         AnimatedContent(targetState = mode, transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) }, label = "mode") { m ->
                             Column {
                                 when (m) {
-                                    Mode.WIFI -> WifiPanel(vm, wifi)
-                                    Mode.HOTSPOT -> HotspotPanel(vm, hotspotState, hotspotAddress)
+                                    Mode.WIFI -> WifiPanel(vm, wifi, pageOpen)
+                                    Mode.HOTSPOT -> HotspotPanel(vm, hotspotState, hotspotAddress, joined > 0, pageOpen)
                                 }
                             }
                         }
@@ -250,7 +255,7 @@ private fun ModeToggle(mode: Mode, onPick: (Mode) -> Unit) {
 }
 
 @Composable
-private fun WifiPanel(vm: DropViewModel, wifi: LocalAddress?) {
+private fun WifiPanel(vm: DropViewModel, wifi: LocalAddress?, pageOpen: Boolean) {
     if (wifi == null) {
         GlassCard {
             Text("This phone isn't on Wi-Fi", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -263,12 +268,13 @@ private fun WifiPanel(vm: DropViewModel, wifi: LocalAddress?) {
         step = null,
         title = "Point the iPhone camera here",
         payload = vm.linkFor(wifi.ip),
+        done = PAGE_OPEN.takeIf { pageOpen },
         footer = { StepsStrip(); Spacer(Modifier.height(10.dp)); LinkChip(vm.linkFor(wifi.ip)) },
     )
 }
 
 @Composable
-private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress: LocalAddress?) {
+private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress: LocalAddress?, joined: Boolean, pageOpen: Boolean) {
     val context = LocalContext.current
     val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.NEARBY_WIFI_DEVICES else Manifest.permission.ACCESS_FINE_LOCATION
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) vm.startHotspot() }
@@ -282,6 +288,8 @@ private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress:
                 step = 1,
                 title = "Join this phone's Wi-Fi",
                 payload = state.info.qrPayload(),
+                // Android may not count an iPhone as joined, but if its send page is open, it has.
+                done = "iPhone joined".takeIf { joined || pageOpen },
                 footer = {
                     Text("Scan with the camera, then tap Join.", fontSize = 14.sp, color = Muted, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(12.dp))
@@ -304,7 +312,7 @@ private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress:
             )
             Spacer(Modifier.height(14.dp))
             if (hotspotAddress != null) {
-                QrCard(step = 2, title = "Then scan this to send", payload = vm.linkFor(hotspotAddress.ip), footer = { StepsStrip() })
+                QrCard(step = 2, title = "Then scan this to send", payload = vm.linkFor(hotspotAddress.ip), done = PAGE_OPEN.takeIf { pageOpen }, footer = { StepsStrip() })
             } else {
                 GlassCard { Text("Starting the hotspot… the send code appears here in a moment.", fontSize = 14.sp, color = Muted) }
             }
@@ -316,6 +324,7 @@ private fun HotspotPanel(vm: DropViewModel, state: HotspotState, hotspotAddress:
             step = null,
             title = "Your hotspot is on",
             payload = vm.linkFor(hotspotAddress.ip),
+            done = PAGE_OPEN.takeIf { pageOpen },
             footer = {
                 Text("Join it from the iPhone's Wi-Fi settings, then scan this.", fontSize = 14.sp, color = Muted, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(10.dp))
@@ -357,18 +366,35 @@ private fun GlassCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun QrCard(step: Int?, title: String, payload: String, footer: @Composable () -> Unit) {
+/** [done], once set, ticks the step off: a check in place of its number and a green pill saying what happened. */
+@Composable
+private fun QrCard(step: Int?, title: String, payload: String, done: String? = null, footer: @Composable () -> Unit) {
     val bitmap = remember(payload) { qrBitmap(payload).asImageBitmap() }
+    // Keep the pill's text while it animates away.
+    var shown by remember { mutableStateOf(done) }
+    if (done != null) shown = done
     GlassCard {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (step != null) {
+                if (step != null && done != null) {
+                    CheckGlyph(Modifier.size(26.dp))
+                    Spacer(Modifier.width(10.dp))
+                } else if (step != null) {
                     Box(Modifier.size(26.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Accent, AccentDeep))), contentAlignment = Alignment.Center) {
                         Text("$step", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                     Spacer(Modifier.width(10.dp))
                 }
                 Text(title, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+            }
+            AnimatedVisibility(visible = done != null) {
+                Text(
+                    "✓  ${shown.orEmpty()}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Mint,
+                    modifier = Modifier.padding(top = 10.dp).clip(RoundedCornerShape(50)).background(Mint.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 5.dp),
+                )
             }
             Spacer(Modifier.height(18.dp))
             Box(
