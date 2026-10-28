@@ -42,6 +42,15 @@ data class Received(
     val failed: String? = null,
 )
 
+/**
+ * The secret path, kept for as long as the app's process lives: leaving with Back
+ * and coming back makes a new view model and server, but the link a friend already
+ * has open keeps working.
+ */
+object SessionToken {
+    val value: String by lazy { DropServer.newToken() }
+}
+
 sealed interface HotspotState {
     data object Off : HotspotState
     data object Starting : HotspotState
@@ -52,7 +61,7 @@ sealed interface HotspotState {
 
 class DropViewModel(app: Application) : AndroidViewModel(app) {
     val deviceName: String = Settings.Global.getString(app.contentResolver, Settings.Global.DEVICE_NAME) ?: Build.MODEL
-    private val token = DropServer.newToken()
+    private val token = SessionToken.value
     val received = mutableStateListOf<Received>()
     private val wifi = app.getSystemService(WifiManager::class.java)
     private val direct = DirectHotspot(app)

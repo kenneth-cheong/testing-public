@@ -201,18 +201,21 @@ function start(job) {
 }
 
 // Tell the phone this page is open, and show whether the phone can still be reached.
-let misses = 0;
+let misses = 0, stale = false;
 async function ping() {
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), 3000);
   try {
     const r = await fetch('ping', { cache: 'no-store', signal: stop.signal });
+    stale = r.status === 403; // the phone answers, but QR Drop restarted with a new link
     misses = r.ok ? 0 : misses + 1;
   } catch (e) { misses++; }
   clearTimeout(timer);
   const lost = misses >= 2;
   el('conn').classList.toggle('lost', lost);
-  el('connText').textContent = lost ? "Can't reach " + NAME + '. Is QR Drop still open?' : 'Connected to ' + NAME;
+  el('connText').textContent = !lost ? 'Connected to ' + NAME
+    : stale ? 'QR Drop restarted on ' + NAME + '. Scan its code again.'
+    : "Can't reach " + NAME + '. Is QR Drop still open?';
 }
 ping();
 setInterval(ping, 4000);
