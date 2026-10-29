@@ -7,6 +7,7 @@ import io.github.kennethcheong.clauderemote.data.PromptTemplate
 import io.github.kennethcheong.clauderemote.data.RunStatus
 import io.github.kennethcheong.clauderemote.data.SessionDetail
 import io.github.kennethcheong.clauderemote.data.SessionSummary
+import io.github.kennethcheong.clauderemote.relay.PhoneRelay
 import java.io.IOException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -50,6 +51,11 @@ class SessionsViewModel(private val bridges: List<Bridge>) : ViewModel() {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
     private val wake = Channel<Unit>(Channel.CONFLATED)
+
+    init {
+        // The phone app spots state changes first; refresh as soon as it says so.
+        viewModelScope.launch { PhoneRelay.changed.collect { wake.trySend(Unit) } }
+    }
 
     suspend fun pollWhileVisible() = pollLoop(wake) {
         val fetches = coroutineScope {
@@ -140,6 +146,11 @@ class ThreadViewModel(private val client: BridgeClient, private val id: String) 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
     private val wake = Channel<Unit>(Channel.CONFLATED)
+
+    init {
+        // The phone app spots state changes first; refresh as soon as it says so.
+        viewModelScope.launch { PhoneRelay.changed.collect { wake.trySend(Unit) } }
+    }
 
     suspend fun pollWhileVisible() = pollLoop(wake) {
         try {

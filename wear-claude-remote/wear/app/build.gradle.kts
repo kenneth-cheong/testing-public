@@ -23,8 +23,8 @@ android {
         applicationId = "io.github.kennethcheong.clauderemote"
         minSdk = 30
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
 
         buildConfigField("String", "DEFAULT_BRIDGE_URL", buildConfigString(localProps.getProperty("bridge.url")))
     }
@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.wear.compose.navigation)
     implementation(libs.wear.input)
     implementation(libs.okhttp)
+    implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 

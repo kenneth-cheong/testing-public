@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lets the phone app find this watch to send it alerts (see Relay.CAPABILITY_WATCH). -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>claude_remote_watch</item>
+    </string-array>
+</resources>

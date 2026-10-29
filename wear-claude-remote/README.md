@@ -7,6 +7,10 @@ buzz on your wrist when Claude needs a decision).
 ```
  Wear OS watch ──HTTPS──▶ bridge (Node, on your computer) ──Agent SDK──▶ Claude Code sessions
   Compose app             REST API, per-watch tokens            ~/.claude/projects/*.jsonl
+
+ With the phone app (optional):
+ watch ──Bluetooth (Data Layer)──▶ phone relay ──HTTPS over Tailscale──▶ bridge
+       ◀── alerts: finished / needs approval ──┘
 ```
 
 There is no public API for claude.ai chats or claude.ai/code cloud sessions,
@@ -21,7 +25,8 @@ them to get one list labelled by computer.
 | Path | What it is |
 |---|---|
 | `bridge/` | TypeScript HTTP server that uses `@anthropic-ai/claude-agent-sdk` (`listSessions`, `getSessionMessages`, `query({ resume })`, `canUseTool`). |
-| `wear/` | Wear OS app (Kotlin, Compose for Wear OS Material 3). |
+| `wear/app/` | Wear OS app (Kotlin, Compose for Wear OS Material 3). |
+| `wear/phone/` | Optional Android phone relay. It shares the watch app's `data/` files, including the relay protocol in `Relay.kt`. |
 
 ## 1. Run the bridge
 
@@ -102,6 +107,37 @@ use `tailscale serve --bg 8787` instead. A Cloudflare named tunnel works too.
 the watch scroll to the bottom of the session list, tap **Add computer** and
 pair the same way. Each computer gets its own token.
 
+## 4. Optional: the phone relay
+
+The phone app makes your phone do the networking and watch your computers in
+the background. The watch app then:
+- sends its requests to the phone over Bluetooth instead of going online itself;
+- gets an **alert** when Claude finishes, stops with an error or needs an approval,
+  even with the app closed. Approval alerts have **Allow** and **Deny** buttons;
+- refreshes as soon as the phone sees a change.
+
+If the phone is out of reach, or its app isn't running, the watch goes straight
+to the bridge as before.
+
+**Install it:**
+1. Build it with `./gradlew :phone:assembleDebug`, or download the
+   `claude-remote-phone-debug-apk` artifact from CI.
+2. Sign it with the same key as the watch app. The Data Layer only connects apps
+   with the same package name **and** the same signing key. CI's debug builds are
+   signed with a throwaway key, so re-sign both APKs with yours, e.g. with `apksigner`.
+3. Run `adb install` on the phone and open **Claude Remote**. The relay switch is on by default.
+4. Open Claude Remote on the watch once. It hands its paired computers, with their
+   tokens, to the phone over the Data Layer, which is encrypted end to end.
+
+**Make it private:** install Tailscale on the phone and keep it connected. Then
+the phone reaches your computers inside your tailnet, so you can swap
+`tailscale funnel` for `tailscale serve` and take the bridge off the public internet.
+The watch then only works through the phone.
+
+**Keep it running:** the relay runs as a foreground service with an ongoing
+"Relaying for your watch" notification. On ColorOS, Xiaomi and similar phones,
+also tap **Let it run in the background** in the app, or the system freezes it.
+
 ## Using it
 
 - **Session list**: newest first, with the project folder and the last activity.
@@ -125,7 +161,8 @@ pair the same way. Each computer gets its own token.
   **Allow / Deny**. If nobody answers within 5 minutes, the request is denied.
 
 The app polls every 2.5 seconds while Claude is working and every 15 seconds
-otherwise, and only while the screen is visible.
+otherwise, and only while the screen is visible. With the phone relay, the phone
+polls instead: every 3 seconds while anything is running and every 15 seconds otherwise.
 
 ## Bridge API
 
@@ -151,9 +188,11 @@ All endpoints except `/health` and `/pair` need `Authorization: Bearer <device t
 - `status` only reflects runs started through the bridge. A session busy in
   your terminal shows as `idle`. Don't continue it from the watch at the same
   time, because both processes would write to the same transcript.
-- Answers arrive only while the app is open. A push notification when a run
-  finishes or needs approval (for example via ntfy or FCM) would be the next
-  thing to add.
+- Without the phone relay, answers arrive only while the app is open.
+- Alerts only cover runs started through the bridge, for the same reason.
+- Sessions driven from the watch don't appear in the Claude mobile app or on
+  claude.ai/code. Remote Control is documented only for interactive Claude Code
+  sessions, not for sessions the Agent SDK runs.
 
 ## Development
 
