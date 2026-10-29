@@ -16,8 +16,8 @@ android {
         applicationId = "io.github.kennethcheong.clauderemote"
         minSdk = 30
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.4.2"
     }
 
     // The bridge client, settings store and relay protocol are the watch app's own files.

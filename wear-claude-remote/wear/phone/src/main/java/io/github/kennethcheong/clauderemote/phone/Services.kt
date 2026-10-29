@@ -107,9 +107,10 @@ class WatcherService : Service() {
     }
 }
 
-/** Starts the relay again after the phone restarts, if it was on. */
+/** Starts the relay again after the phone restarts or the app is updated, if it was on. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED && WatcherService.isOn(context)) WatcherService.set(context, true)
+        val restart = intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        if (restart && WatcherService.isOn(context)) WatcherService.set(context, true)
     }
 }

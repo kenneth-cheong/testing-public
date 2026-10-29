@@ -131,12 +131,13 @@ object Watcher {
                         val detail = try { client.session(s.id, limit = 1) } catch (e: IOException) { null }
                         val failed = s.status == RunStatus.ERROR
                         val text = (if (failed) detail?.error else detail?.reply).orEmpty()
-                        alert(context, Alert(if (failed) Alert.FAILED else Alert.FINISHED, bridge.id, name, s.id, s.title, text.take(MAX_TEXT)))
+                        alert(context, Alert(if (failed) Alert.FAILED else Alert.FINISHED, bridge.id, name, s.id, s.title, plain(text).take(MAX_TEXT)))
                     }
                     for (s in c.waiting) {
                         val pending = try { client.session(s.id, limit = 1).pending } catch (e: IOException) { null } ?: continue
                         if (alertedApproval.put("${bridge.id}/${s.id}", pending.id) == pending.id) continue
-                        alert(context, Alert(Alert.APPROVAL, bridge.id, name, s.id, s.title, "${pending.tool}: ${pending.summary}".take(MAX_TEXT), pending.id))
+                        // The bridge's summary already names the tool ("Bash: npm test").
+                        alert(context, Alert(Alert.APPROVAL, bridge.id, name, s.id, s.title, pending.summary.take(MAX_TEXT), pending.id))
                     }
                     Computer(name, sessions.count { RunStatus.isBusy(it.status) }, null)
                 }
@@ -213,6 +214,12 @@ object Watcher {
             }
         }
     }
+
+    /** Claude's replies are markdown; a notification shows the markup literally, so drop the common marks. */
+    internal fun plain(markdown: String): String = markdown
+        .replace(Regex("^#{1,6}\\s+", RegexOption.MULTILINE), "")
+        .replace("**", "")
+        .replace("`", "")
 
     private fun error(message: String) = Relay.json.encodeToString(mapOf("error" to message))
 

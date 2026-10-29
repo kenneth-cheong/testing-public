@@ -30,6 +30,12 @@ class ChangesTest {
     }
 
     @Test
+    fun aNewSessionAlreadyDoneFinishedBetweenPolls() {
+        val c = changes(mapOf("a" to "idle"), listOf(s("a", "idle"), s("b", "done"), s("c", "idle")))
+        assertEquals(listOf("b"), c.finished.map { it.id })
+    }
+
+    @Test
     fun doneStayingDoneOrIdleAfterRestartIsNotFinished() {
         val c = changes(mapOf("a" to "done", "b" to "running"), listOf(s("a", "done"), s("b", "idle")))
         assertEquals(emptyList<SessionSummary>(), c.finished)
@@ -45,6 +51,11 @@ class ChangesTest {
     fun newOrVanishedSessionsCountAsChanges() {
         assertTrue(changes(mapOf("a" to "idle"), listOf(s("a", "idle"), s("b", "running"))).any)
         assertTrue(changes(mapOf("a" to "idle", "b" to "idle"), listOf(s("a", "idle"))).any)
+    }
+
+    @Test
+    fun alertTextLosesMarkdownMarks() {
+        assertEquals("Status\n1. Just did: ran npm test", Watcher.plain("## Status\n1. **Just did:** ran `npm test`"))
     }
 
     @Test
