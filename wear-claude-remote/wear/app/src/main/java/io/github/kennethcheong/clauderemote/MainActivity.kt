@@ -1,13 +1,19 @@
 package io.github.kennethcheong.clauderemote
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +30,8 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import io.github.kennethcheong.clauderemote.data.BridgeSettings
+import io.github.kennethcheong.clauderemote.relay.Alerts
+import io.github.kennethcheong.clauderemote.relay.PhoneRelay
 import io.github.kennethcheong.clauderemote.ui.AppState
 import io.github.kennethcheong.clauderemote.ui.Bridge
 import io.github.kennethcheong.clauderemote.ui.NewSessionOnMachineScreen
@@ -35,31 +43,69 @@ import io.github.kennethcheong.clauderemote.ui.TemplatesScreen
 import io.github.kennethcheong.clauderemote.ui.TemplatesViewModel
 import io.github.kennethcheong.clauderemote.ui.ThreadScreen
 import io.github.kennethcheong.clauderemote.ui.ThreadViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class MainActivity : ComponentActivity() {
-    private val appState by lazy { AppState(BridgeSettings(applicationContext), BuildConfig.DEFAULT_BRIDGE_URL) }
+    private val appState by lazy {
+        AppState(
+            BridgeSettings(applicationContext),
+            BuildConfig.DEFAULT_BRIDGE_URL,
+            http = PhoneRelay.http(applicationContext),
+            onBridgesChanged = { PhoneRelay.bridgesChanged(applicationContext) },
+        )
+    }
+
+    /** The thread a tapped alert asks to open, as "bridgeId/sessionId"; cleared once shown. */
+    private val openRequest = MutableStateFlow<String?>(null)
+
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { RemoteApp(appState) }
+        if (savedInstanceState == null) takeOpenRequest(intent)
+        // Alerts from the phone need this from Android 13 on.
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Let the phone pick up computers paired before it had the relay.
+        PhoneRelay.bridgesChanged(applicationContext)
+        setContent { RemoteApp(appState, openRequest) { openRequest.value = null } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        takeOpenRequest(intent)
+    }
+
+    private fun takeOpenRequest(intent: Intent?) {
+        val bridge = intent?.getStringExtra(Alerts.EXTRA_BRIDGE) ?: return
+        val session = intent.getStringExtra(Alerts.EXTRA_SESSION) ?: return
+        openRequest.value = "$bridge/$session"
     }
 }
 
 @Composable
-private fun RemoteApp(appState: AppState) {
+private fun RemoteApp(appState: AppState, openRequest: StateFlow<String?>, onOpened: () -> Unit) {
     val bridges by appState.bridges.collectAsStateWithLifecycle()
     // Bridges paired by version 0.2 don't know their computer's name yet; ask them once.
     LaunchedEffect(appState) { appState.fillMissingNames() }
     MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(primary = Color(0xFFD97757))) {
         AppScaffold {
-            if (bridges.isEmpty()) SetupScreen(appState) else RemoteNavHost(appState, bridges)
+            if (bridges.isEmpty()) SetupScreen(appState) else RemoteNavHost(appState, bridges, openRequest, onOpened)
         }
     }
 }
 
 @Composable
-private fun RemoteNavHost(appState: AppState, bridges: List<Bridge>) {
+private fun RemoteNavHost(appState: AppState, bridges: List<Bridge>, openRequest: StateFlow<String?>, onOpened: () -> Unit) {
     val navController = rememberSwipeDismissableNavController()
+    val open by openRequest.collectAsState()
+    LaunchedEffect(open) {
+        val target = open ?: return@LaunchedEffect
+        navController.navigate("thread/$target") { popUpTo("sessions") }
+        onOpened()
+    }
     SwipeDismissableNavHost(navController = navController, startDestination = "sessions") {
         composable("sessions") {
             SessionsScreen(

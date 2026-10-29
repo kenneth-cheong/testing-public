@@ -24,6 +24,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import io.github.kennethcheong.clauderemote.data.RunStatus
+import io.github.kennethcheong.clauderemote.relay.PhoneRelay
 import kotlinx.coroutines.launch
 
 /**
@@ -41,6 +42,7 @@ fun SessionsScreen(
     onUnpair: (bridgeId: String) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val viaPhone by PhoneRelay.viaPhone.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(viewModel) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.pollWhileVisible() }
@@ -63,7 +65,7 @@ fun SessionsScreen(
         },
     ) { contentPadding ->
         ScalingLazyColumn(state = listState, contentPadding = contentPadding) {
-            item { ListHeader { Text("Claude Code") } }
+            item { ListHeader { Text(if (viaPhone) "Claude Code · via phone" else "Claude Code") } }
             item {
                 FilledTonalButton(
                     onClick = { if (single != null) onTemplates(single.id) else onPickMachine(PICK_TEMPLATE) },

@@ -43,11 +43,17 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - name: Unit tests and debug APK
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
-      # The APK holds no secrets: watches get their own token by pairing with the bridge.
+      - name: Unit tests and debug APKs (watch and phone)
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :phone:testDebugUnitTest :app:assembleDebug :phone:assembleDebug
+      # The APKs hold no secrets: watches get their own token by pairing with the bridge,
+      # and the phone gets the watch's over the Data Layer.
       - uses: actions/upload-artifact@v4
         with:
           name: claude-remote-debug-apk
           path: wear-claude-remote/wear/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-remote-phone-debug-apk
+          path: wear-claude-remote/wear/phone/build/outputs/apk/debug/phone-debug.apk
           if-no-files-found: error
